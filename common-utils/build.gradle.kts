@@ -10,26 +10,16 @@ repositories {
 }
 
 dependencies {
-    // 1. 本体のコンパイル済みクラスを参照 (../.. で testbedui 側へ抜ける)
-    // 本体側で ./gradlew :composeApp:compileKotlinJvm が実行済みである必要があります
+    // 本体 (testbedui) のクラスを参照
     implementation(files("../../testbedui/composeApp/build/classes/kotlin/jvm/main"))
 
-    // 2. テスト実行に必要な最小限の依存関係
+    // 共通で使うライブラリ
     implementation("junit:junit:4.13.2")
     implementation("com.malinskiy.adam:adam:0.5.10")
-    // 本体の JUnitBridge や AdbDeviceRule が依存している coroutines も必要
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
-    implementation(project(":common-utils"))
 }
 
-tasks.jar {
-    val pluginName = project.name
-    archiveFileName.set("$pluginName.jar")
-
-    // 3. 本体の plugins/配下の個別ディレクトリへ出力
-    destinationDirectory.set(file("${rootProject.projectDir}/../testbedui/composeApp/plugins/$pluginName"))
-}
-
+// Java/Kotlinのターゲット設定を17に統一
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
