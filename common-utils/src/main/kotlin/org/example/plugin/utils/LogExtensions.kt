@@ -1,4 +1,4 @@
-package com.example.plugin.utils// testbedui-plugins/common-utils/src/main/kotlin/.../LogExtensions.kt
+package org.example.plugin.utils// testbedui-plugins/common-utils/src/main/kotlin/.../LogExtensions.kt
 
 import org.example.project.JUnitBridge
 import org.example.project.TestLogLevel

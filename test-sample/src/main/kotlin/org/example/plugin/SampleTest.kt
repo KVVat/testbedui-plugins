@@ -1,7 +1,10 @@
 package org.example.plugin
 
-import com.example.plugin.utils.*
-import org.example.project.JUnitBridge
+import org.example.plugin.utils.logd
+import org.example.plugin.utils.loge
+import org.example.plugin.utils.logi
+import org.example.plugin.utils.logp
+import org.example.plugin.utils.logw
 import org.example.project.adb.rules.AdbDeviceRule
 import org.junit.Rule
 import org.junit.Test
