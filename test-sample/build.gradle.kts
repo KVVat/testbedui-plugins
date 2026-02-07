@@ -19,13 +19,16 @@ dependencies {
     implementation("com.malinskiy.adam:adam:0.5.10")
     // 本体の JUnitBridge や AdbDeviceRule が依存している coroutines も必要
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
-    implementation(project(":common-utils"))
+
 }
 
 tasks.jar {
     val pluginName = project.name
     archiveFileName.set("$pluginName.jar")
 
+    // common-utils などの依存モジュールを JAR に含める設定
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
     // 3. 本体の plugins/配下の個別ディレクトリへ出力
     destinationDirectory.set(file("${rootProject.projectDir}/../testbedui/composeApp/plugins/$pluginName"))
 }
