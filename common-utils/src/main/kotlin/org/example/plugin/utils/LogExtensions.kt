@@ -8,3 +8,4 @@ fun logi(message: String) = JUnitBridge.logging?.invoke(message, TestLogLevel.IN
 fun logp(message: String) = JUnitBridge.logging?.invoke(message, TestLogLevel.PASS)
 fun logw(message: String) = JUnitBridge.logging?.invoke(message, TestLogLevel.WARN)
 fun loge(message: String) = JUnitBridge.logging?.invoke(message, TestLogLevel.ERROR)
+
