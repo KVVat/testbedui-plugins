@@ -1,5 +1,10 @@
 plugins {
-    kotlin("jvm") version "2.3.0" apply false
+    kotlin("jvm") version "1.9.24" apply false
+
+    // Android Plugins
+    alias(libs.plugins.androidApplication) apply false
+    alias(libs.plugins.kotlinAndroid) apply false
+    id("com.google.devtools.ksp") version "2.3.4" apply false
 }
 
 allprojects {

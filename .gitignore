@@ -31,6 +31,7 @@ local.properties
 # Environment variables
 .env
 
+repomix*
 repomix-patch.txt
 
 /.gradle/
