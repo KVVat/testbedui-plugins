@@ -21,5 +21,7 @@ class SampleTest {
         logger?.invoke("--- [Plugin] 対象デバイス: $serial ---", TestLogLevel.DEBUG)
 
         loge("ERROR")
+        logw("WARNING")
+        logi("INFO")
     }
 }

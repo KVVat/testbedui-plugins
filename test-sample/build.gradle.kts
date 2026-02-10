@@ -12,7 +12,7 @@ repositories {
 dependencies {
     // 1. 本体のコンパイル済みクラスを参照 (../.. で testbedui 側へ抜ける)
     // 本体側で ./gradlew :composeApp:compileKotlinJvm が実行済みである必要があります
-    implementation(files("../../testbedui/composeApp/build/classes/kotlin/jvm/main"))
+    implementation(files("../../testbed-core/composeApp/build/classes/kotlin/jvm/main"))
     implementation(project(":common-utils"))
     // 2. テスト実行に必要な最小限の依存関係
     implementation("junit:junit:4.13.2")
@@ -30,7 +30,7 @@ tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
     // 3. 本体の plugins/配下の個別ディレクトリへ出力
-    destinationDirectory.set(file("${rootProject.projectDir}/../testbedui/composeApp/plugins/$pluginName"))
+    destinationDirectory.set(file("${rootProject.projectDir}/../testbed-core/composeApp/plugins/$pluginName"))
 }
 
 java {

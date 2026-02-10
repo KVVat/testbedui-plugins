@@ -11,7 +11,7 @@ repositories {
 
 dependencies {
     // 本体 (testbedui) のクラスを参照
-    implementation(files("../../testbedui/composeApp/build/classes/kotlin/jvm/main"))
+    implementation(files("../../testbed-core/composeApp/build/classes/kotlin/jvm/main"))
 
     // 共通で使うライブラリ
     implementation("junit:junit:4.13.2")
