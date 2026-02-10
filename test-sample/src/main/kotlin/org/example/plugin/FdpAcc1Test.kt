@@ -9,6 +9,7 @@ import org.junit.Assert
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
+import org.example.project.JUnitBridge
 
 class FdpAcc1Test {
 
@@ -16,9 +17,11 @@ class FdpAcc1Test {
     val adbDeviceRule = AdbDeviceRule()
 
     // Assuming the APK is placed in "libs" directory in the project root
-    private val TEST_APK = File("libs/assets-debug.apk")
-    private val TEST_PACKAGE = "com.example.assets"
-
+    //private val TEST_APK = File("libs/target-test-app-debug.apk")
+    private val TEST_APK by lazy {
+        File(JUnitBridge.resourceDir, "target-test-app-debug.apk")
+    }
+    private val TEST_PACKAGE = "org.example.target"
     @Test
     fun testUserAssets() = runBlocking {
         val client = adbDeviceRule.adb

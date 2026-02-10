@@ -1,8 +1,6 @@
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
-
-
     id("com.google.devtools.ksp")
 }
 
@@ -47,4 +45,35 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+}
+
+
+// --- Auto-Copy APK to TestBed Core Resources ---
+
+tasks.register<Copy>("copyApkToCore") {
+    description = "Copies the generated APK to the TestBed Core resources directory."
+
+    // Source: The output of the assembleDebug task
+    from(layout.buildDirectory.dir("outputs/apk/debug"))
+    include("*-debug.apk")
+
+    // Destination: ../testbed-core/resources/
+    // Assuming 'testbed-core' is a sibling of the root project
+    val coreResourcesDir = file("${rootProject.projectDir}/../testbed-core/composeApp/resources")
+    if (!coreResourcesDir.exists()) {
+        coreResourcesDir.mkdirs()
+    }
+    into(coreResourcesDir)
+
+    // Optional: Rename for simpler access in tests (e.g., removes version suffix if needed)
+    // rename { it.replace("-debug.apk", ".apk") }
+
+    doLast {
+        println("✅ APK copied to: ${coreResourcesDir.absolutePath}")
+    }
+}
+
+// Hook the copy task to run automatically after build
+tasks.named("assemble") {
+    finalizedBy("copyApkToCore")
 }
