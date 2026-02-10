@@ -1,0 +1,39 @@
+[
+  {
+    "time": "2020-12-01T19:00:10-08:00",
+    "url": "acvp/v1/testSessions/129607",
+    "vectorSetUrls": [
+      "/acvp/v1/testSessions/129607/vectorSets/397284"
+    ]
+  },
+  {
+    "algorithm": "SHA2-256",
+    "isSample": true,
+    "revision": "1.0",
+    "testGroups": [
+      {
+        "testType": "AFT",
+        "tests": [
+          {
+            "len": 72,
+            "msg": "C42DAFC2991431B24E",
+            "tcId": 11
+          }
+        ],
+        "tgId": 1
+      },
+      {
+        "testType": "MCT",
+        "tests": [
+          {
+            "len": 256,
+            "msg": "55306890EA5177848B75CC1B06B5E105AF6D92B786190D8376677997960DA975",
+            "tcId": 1035
+          }
+        ],
+        "tgId": 2
+      }
+    ],
+    "vsId": 397284
+  }
+]

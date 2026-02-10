@@ -1,0 +1,6 @@
+#ifndef EXPERIMENTAL_USERS_ECX_ACVP_KERNEL_HARNESS_ALG_AEAD_H_
+#define EXPERIMENTAL_USERS_ECX_ACVP_KERNEL_HARNESS_ALG_AEAD_H_
+
+void af_alg_aead(message *msg, char *cipher_name, int encrypt);
+
+#endif  // EXPERIMENTAL_USERS_ECX_ACVP_KERNEL_HARNESS_ALG_AEAD_H_
