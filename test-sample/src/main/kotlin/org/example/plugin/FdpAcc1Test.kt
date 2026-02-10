@@ -23,7 +23,6 @@ class FdpAcc1Test {
     fun testUserAssets() = runBlocking {
         val client = adbDeviceRule.adb
         val serial = adbDeviceRule.deviceSerial
-
         logi(">>> [FDP_ACC1] Starting Test: Subset Access Control")
 
         if (!TEST_APK.exists()) {
