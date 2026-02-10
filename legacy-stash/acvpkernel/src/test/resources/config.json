@@ -1,8 +1,0 @@
-{
-  "ACVPServer": "https://demo.acvts.nist.gov/",
-  "CertPEMFile": "certificate_from_nist.pem",
-  "PrivateKeyFile": "your_private_key.key",
-  "TOTPSecret": "<base64 from NIST goes here>",
-  "SessionTokensCache": "~/.cache/acvp-session-tokens",
-  "LogFile": "log"
-}
