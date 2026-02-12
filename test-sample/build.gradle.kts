@@ -20,6 +20,12 @@ dependencies {
     // 本体の JUnitBridge や AdbDeviceRule が依存している coroutines も必要
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 
+    // 移植したテストが必要とする依存関係
+    implementation("org.dom4j:dom4j:2.1.4")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2")
+    implementation("com.flipkart.zjsonpatch:zjsonpatch:0.4.14")
+    implementation("org.apache.commons:commons-compress:1.23.0")
+
 }
 
 tasks.jar {

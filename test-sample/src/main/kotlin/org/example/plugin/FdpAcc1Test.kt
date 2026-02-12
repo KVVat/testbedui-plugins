@@ -26,10 +26,10 @@ class FdpAcc1Test {
     fun testUserAssets() = runBlocking {
         val client = adbDeviceRule.adb
         val serial = adbDeviceRule.deviceSerial
-        logi(">>> [FDP_ACC1] Starting Test: Subset Access Control")
+        //logi(">>> [FDP_ACC1] Starting Test: Subset Access Control")
 
         if (!TEST_APK.exists()) {
-            loge("Test APK not found at: ${TEST_APK.absolutePath}")
+            //loge("Test APK not found at: ${TEST_APK.absolutePath}")
             return@runBlocking
         }
 
@@ -38,18 +38,18 @@ class FdpAcc1Test {
         AdamUtils.installApk(client, serial, TEST_APK)
 
         // 2. Prepare Data
-        logi("Launching PrepareActivity...")
+        //logi("Launching PrepareActivity...")
         client.execute(ShellCommandRequest("am start -n $TEST_PACKAGE/$TEST_PACKAGE.PrepareActivity"), serial)
         delay(2000)
 
         // 3. Verify Access
-        logi("Launching MainActivity...")
+        //logi("Launching MainActivity...")
         client.execute(ShellCommandRequest("am start -n $TEST_PACKAGE/$TEST_PACKAGE.MainActivity"), serial)
 
         // 4. Check Result
-        val result1 = AdamUtils.waitForLogcat(client, serial, "FDP_ACC_1_TEST", "Test Result:")
-        logi("Result 1: $result1")
-        Assert.assertTrue("Failed initial check", result1?.contains("true/true/true/true") == true)
+        val result1 = AdamUtils.waitLogcatLine(100, "FDP_ACC_1_TEST", adbDeviceRule)
+        //logi("Result 1: $result1")
+        Assert.assertTrue("Failed initial check", result1?.text?.contains("true/true/true/true") == true)
 
         // 5. Uninstall (removes app data)
         AdamUtils.uninstallApk(client, serial, TEST_PACKAGE)
@@ -58,18 +58,18 @@ class FdpAcc1Test {
         AdamUtils.installApk(client, serial, TEST_APK)
         delay(1000)
 
-        logi("Launching MainActivity again...")
+        //logi("Launching MainActivity again...")
         client.execute(ShellCommandRequest("am start -n $TEST_PACKAGE/$TEST_PACKAGE.MainActivity"), serial)
 
         // 7. Check Result (Expect data loss)
-        val result2 = AdamUtils.waitForLogcat(client, serial, "FDP_ACC_1_TEST", "Test Result:")
-        logi("Result 2: $result2")
+        val result2 = AdamUtils.waitLogcatLine(100, "FDP_ACC_1_TEST", adbDeviceRule)
+        //logi("Result 2: $result2")
 
         val expected = "false/false/true/false"
-        if (result2?.contains(expected) == true) {
-            logp("SUCCESS: Data access control verified.")
+        if (result2?.text?.contains(expected) == true) {
+            //logp("SUCCESS: Data access control verified.")
         } else {
-            loge("FAILURE: Expected '$expected' but got '$result2'")
+            //loge("FAILURE: Expected '$expected' but got '$result2'")
             Assert.fail("Access control check failed")
         }
     }

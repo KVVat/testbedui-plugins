@@ -17,6 +17,7 @@ dependencies {
     implementation("junit:junit:4.13.2")
     implementation("com.malinskiy.adam:adam:0.5.10")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation("org.dom4j:dom4j:2.1.4")
 }
 
 // Java/Kotlinのターゲット設定を17に統一
