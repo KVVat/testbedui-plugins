@@ -11,6 +11,18 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        gradlePluginPortal()
+    }
+    buildscript {
+        repositories {
+            google()
+            mavenCentral()
+            // r8:9.0.32 は google() または mavenCentral() にあります
+        }
+        dependencies {
+            // R8を最新バージョン(9.0.28以降がKotlin 2.3対応)に強制
+            classpath("com.android.tools:r8:9.0.32")
+        }
     }
 }
 

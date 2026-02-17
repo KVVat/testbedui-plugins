@@ -5,6 +5,7 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 rootProject.name = "testbedui-plugins"
 
 include(":common-utils")
@@ -16,3 +17,4 @@ include(":apps:directboot")
 include(":apps:appupdate")
 include(":apps:encryption")
 include(":apps:assets-attacker-app")
+include(":tools:mutton-agent")
