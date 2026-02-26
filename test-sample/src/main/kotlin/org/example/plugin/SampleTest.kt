@@ -15,10 +15,10 @@ class SampleTest {
     @Test
     fun helloPluginTest() {
 
-        logger?.invoke("--- [Plugin] 巨大なテストシナリオを開始します ---", TestLogLevel.INFO)
+        logger?.invoke("--- [Plugin] Running Sample Test ---", TestLogLevel.INFO)
 
         val serial = adbDeviceRule.deviceSerial
-        logger?.invoke("--- [Plugin] 対象デバイス: $serial ---", TestLogLevel.DEBUG)
+        logger?.invoke("--- [Plugin] Target Device: $serial ---", TestLogLevel.DEBUG)
 
         loge("ERROR")
         logw("WARNING")

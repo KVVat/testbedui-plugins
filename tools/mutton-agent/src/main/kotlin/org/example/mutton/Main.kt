@@ -1,64 +1,124 @@
-package org.example.agent
-
-import android.app.Instrumentation
+package org.example.mutton
+import android.net.LocalServerSocket
+import android.net.LocalSocket
 import android.os.Looper
-import android.os.Build
-//import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.UiDevice
 import org.json.JSONObject
-import java.util.Scanner
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.io.PrintWriter
 
 /**
  * app_process から起動されるエントリポイント
+ * ソケットサーバーとして常駐し、JSONコマンドを処理します。
  */
 object Main {
+
+    private const val SOCKET_NAME = "mutton_agent"
+
     @JvmStatic
     fun main(args: Array<String>) {
-        // メインスレッドのLooper準備 (Handlerなどが動くように)
+        // 1. Looper準備 (AndroidのシステムAPIを叩くために必須)
         Looper.prepareMainLooper()
 
-        println(">>> AGENT_STARTED")
+        println(">>> AGENT_STARTED (Socket Mode)")
 
-        // Instrumentationの取得 (これが魔法の鍵)
-        // シェルから起動した場合、Instrumentationは自動ではアタッチされませんが、
-        // UiAutomationを取得するためにリフレクションやShell権限を利用します。
-        // ※ app_process独自起動の場合、UiAutomation.getInstance() を直接呼ぶか、
-        // "am instrument" 経由で起動するかの2択になります。
-        // 今回は "Shell権限で動くJavaプログラム" なので、UiAutomationConnection を自前で繋ぐ高度な実装が必要です。
+        // 2. ソケットサーバーの立ち上げ
+        // AdbObserver側で "mutton_agent" という名前の Abstract Socket に転送しているため
+        // ここでも同じ名前で待ち受ける必要があります。
+        // LocalServerSocket(name) はデフォルトで Linux Abstract Namespace にソケットを作ります。
+        try {
+            val server = LocalServerSocket(SOCKET_NAME)
+            println(">>> Listening on localabstract:$SOCKET_NAME")
 
-        // 簡易実装: まずは単純なループで生存確認
-        val scanner = Scanner(System.`in`)
-        while (scanner.hasNextLine()) {
-            val command = scanner.nextLine().trim()
-            if (command == "EXIT") break
+            // 接続待ちループ
+            while (true) {
+                try {
+                    // クライアントからの接続を待機 (ブロッキング)
+                    val client = server.accept()
+                    println(">>> Client connected")
 
-            handleCommand(command)
+                    // クライアントとの通信処理 (簡易的にメインスレッドで処理)
+                    // 本格的にやるなら別スレッドに逃がすが、1対1通信ならこれでもOK
+                    handleClient(client)
+
+                } catch (e: Exception) {
+                    println(">>> Connection error: ${e.message}")
+                    e.printStackTrace()
+                    // 致命的なエラーでない限りループを継続
+                }
+            }
+        } catch (e: Exception) {
+            println(">>> Fatal error: ${e.message}")
+            e.printStackTrace()
         }
 
         println(">>> AGENT_STOPPED")
     }
 
-    private fun handleCommand(cmd: String) {
-        try {
-            when (cmd) {
-                "PING" -> sendJson("PONG", "status" to "alive")
-                "DUMP" -> {
-                    // ここで階層ダンプを実行
-                    // val rootNode = AccessibilityInteractionClient...
-                    sendJson("DUMP_RESULT", "xml" to "<dummy>TODO: Implement Dump</dummy>")
+    private fun handleClient(client: LocalSocket) {
+        // useブロックで自動的にクローズ
+        client.use { socket ->
+            val reader = BufferedReader(InputStreamReader(socket.inputStream))
+            val writer = PrintWriter(socket.outputStream, true)
+
+            // 行単位でコマンドを受信
+            var line: String? = reader.readLine()
+            while (line != null) {
+                if (line.isBlank()) {
+                    line = reader.readLine()
+                    continue
                 }
-                else -> sendJson("ERROR", "message" to "Unknown command: $cmd")
+
+                println("RX: $line") // デバッグログ
+
+                val response = try {
+                    val cmdJson = JSONObject(line)
+                    processCommand(cmdJson)
+                } catch (e: Exception) {
+                    createError("Invalid JSON: ${e.message}")
+                }
+
+                // 応答を送信
+                writer.println(response.toString())
+                println("TX: $response")
+
+                // 次の行を読む
+                line = reader.readLine()
             }
-        } catch (e: Exception) {
-            sendJson("ERROR", "message" to e.toString())
+        }
+        println(">>> Client disconnected")
+    }
+
+    private fun processCommand(json: JSONObject): JSONObject {
+        val cmd = json.optString("cmd")
+        return when (cmd) {
+            "ping" -> {
+                JSONObject().put("status", "pong").put("message", "I am alive!")
+            }
+            "dump" -> {
+                // UI階層ダンプの実装予定地
+                // 実際にはここで AccessibilityInteractionClient 等を使ってダンプする
+                JSONObject()
+                    .put("type", "dump_result")
+                    .put("xml", "<dummy>Wait for Phase 2 implementation</dummy>")
+            }
+            "shell" -> {
+                val commandStr = json.getString("args") // 例: "ls -l /sdcard"
+                // Javaの標準機能でプロセス実行
+                val process = Runtime.getRuntime().exec(commandStr)
+                val output = process.inputStream.bufferedReader().use { it.readText() }
+                JSONObject().put("status", "ok").put("output", output)
+            }
+            "exit" -> {
+                // プロセス終了用
+                System.exit(0)
+                JSONObject().put("status", "exiting")
+            }
+            else -> createError("Unknown command: $cmd")
         }
     }
 
-    private fun sendJson(type: String, vararg pairs: Pair<String, Any>) {
-        val json = JSONObject()
-        json.put("type", type)
-        pairs.forEach { json.put(it.first, it.second) }
-        // 標準出力に1行のJSONとして吐く (クライアント側でパースする)
-        println(json.toString())
+    private fun createError(msg: String): JSONObject {
+        return JSONObject().put("status", "error").put("message", msg)
     }
 }
