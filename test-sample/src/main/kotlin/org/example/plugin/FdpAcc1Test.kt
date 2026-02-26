@@ -19,8 +19,8 @@ class FdpAcc1Test {
 
     @get:Rule
     val adbDeviceRule = AdbDeviceRule()
-    val client = adbDeviceRule.adb
-    val serial = adbDeviceRule.deviceSerial
+    val client get() = adbDeviceRule.adb
+    val serial get() = adbDeviceRule.deviceSerial
 
     // Assuming the APK is placed in "libs" directory in the project root
     private val TEST_APK by lazy {
@@ -45,7 +45,7 @@ class FdpAcc1Test {
     fun testUserAssets() = runBlocking {
 
         logi("Launching testUserAssets...")
-
+        delay(500)
         if (!TEST_APK.exists()) {
             loge("Test APK not found at: ${TEST_APK.absolutePath}")
             return@runBlocking

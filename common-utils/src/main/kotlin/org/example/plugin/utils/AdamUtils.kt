@@ -118,17 +118,27 @@ object AdamUtils {
         val result = client.execute(UninstallRemotePackageRequest(packageName), serial)
         println("[AdamUtils] Uninstall Result: ${result.output.trim()}")
     }
-
+    suspend fun clearLogcat(adb: AdbDeviceRule) {
+        adb.adb.execute(ShellCommandRequest("logcat -c"), adb.deviceSerial)
+    }
     suspend fun waitLogcatLine(waitTime: Int, tagWait: String, adb: AdbDeviceRule): LogcatResult? {
+        clearLogcat(adb)
         var result: LogcatResult? = null
         withTimeoutOrNull(waitTime * 100L) {
-            val deviceTimezoneString = adb.adb.execute(com.malinskiy.adam.request.prop.GetSinglePropRequest("persist.sys.timezone"), adb.deviceSerial).trim()
-            val deviceTimezone = TimeZone.getTimeZone(deviceTimezoneString)
+            //val deviceTimezoneString = adb.adb.execute(com.malinskiy.adam.request.prop.GetSinglePropRequest("persist.sys.timezone"), adb.deviceSerial).trim()
+            //val deviceTimezone = TimeZone.getTimeZone(deviceTimezoneString)
             val request = ChanneledLogcatRequest(since = null, modes = listOf())
             val channel = adb.adb.execute(request, this, adb.deviceSerial)
-
             for (line in channel) {
-               logi(line)
+                if (line.contains(tagWait)) {
+                    println("[AdamUtils] matched logcat line found: $line")
+                    result = LogcatResult(tagWait, line)
+                    channel.cancel()
+                    break
+                }
+            }
+            /*
+            for (line in channel) {
                 val logLine = LogLine.of(line, deviceTimezone)
                 if (logLine is LogLine.Log && logLine.tag == tagWait) {
                     println("matched logcat line found: ${logLine.text}")
@@ -136,7 +146,7 @@ object AdamUtils {
                     channel.cancel()
                     break
                 }
-            }
+            }*/
         }
         return result
     }

@@ -30,8 +30,8 @@ class PrepareActivity : AppCompatActivity() {
     setContentView(R.layout.activity_main)
     //Prepare Data
     getPrefValueOrWrite("SampleValue","Success");
-    //preparePrivateFileForTest("testfile.txt");
-    //prepareMediaFileForTest();
+    preparePrivateFileForTest("testfile.txt");
+    prepareMediaFileForTest();
     CoroutineScope(Dispatchers.IO).launch {
       prepareRoomDatabaseForTest();
     }
