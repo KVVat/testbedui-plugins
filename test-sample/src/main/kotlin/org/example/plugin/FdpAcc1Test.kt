@@ -11,6 +11,7 @@ import org.example.project.JUnitBridge
 import org.example.project.adb.rules.AdbDeviceRule
 import org.junit.After
 import org.junit.Assert
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -31,13 +32,13 @@ class FdpAcc1Test {
     }
     private val TEST_PACKAGE = "org.example.assets.target"
     private val ATTACKER_PACKAGE = "org.example.assets.attacker"
-    /*
+
     @Before
     fun setUp()
     {
 
     }
-    */
+
     @After
     fun teardown() {
         runBlocking {
