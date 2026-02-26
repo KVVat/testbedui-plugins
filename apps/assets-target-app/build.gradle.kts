@@ -7,7 +7,6 @@ plugins {
 android {
     namespace = "org.example.assets.target"
     compileSdk = 34
-
     defaultConfig {
         applicationId = "org.example.assets.target"
         minSdk = 24

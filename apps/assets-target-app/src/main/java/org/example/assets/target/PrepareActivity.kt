@@ -51,7 +51,7 @@ class PrepareActivity : AppCompatActivity() {
         User(3, "Bruce", "Wayne"),
         User(4, "Clark", "Kent")))
     }
-    Log.d(TAG,
+    Log.d("Info/"+TAG,
           "Successfully wrote database")
   }
 
@@ -92,19 +92,19 @@ class PrepareActivity : AppCompatActivity() {
             while (inputStream.read(bytes) != -1) {
               outputStream!!.write(bytes)
             }
-            Log.d(TAG,
+            Log.d("Info/"+TAG,
                   "Successfully wrote file to pictures directory")
           }
         }
       } catch (e: IOException) {
-        Log.e(TAG,
+        Log.e("Info/"+TAG,
               "Caught an exception copying file:",
               e)
       }
       photoContentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
       contentResolver.update(photoUri!!, photoContentValues, null, null)
     } else {
-      Log.d(TAG,
+      Log.d("Info/"+TAG,
             "Android Q is required to execute")
     }
   }
@@ -125,7 +125,7 @@ class PrepareActivity : AppCompatActivity() {
         flush()
         close()
       }
-      Log.d(TAG,
+      Log.d("Info/"+TAG,
             "Successfully wrote a test file into privatedir named testfile.txt")
 
     } catch (ex: IOException) {
@@ -138,14 +138,14 @@ class PrepareActivity : AppCompatActivity() {
     val ret = sharedPref.getString(label,"")
     if(ret==""){
       if(!ret.equals(value)){
-        Log.d(TAG, "New API Value=>"+value+" assigned.")
+        Log.d("Info/"+TAG, "New API Value=>"+value+" assigned.")
       } else {
-        Log.d(TAG, "It's a panic case. Both api value and existing value are blank.")
+        Log.d("Info/"+TAG, "It's a panic case. Both api value and existing value are blank.")
       }
       sharedPref.edit().putString(label,value).apply()
       return value;
     } else {
-      Log.d(TAG, "ID:"+label+" API Value:"+value+" Existing Value:"+ret!!+" Constancy:"+(ret.equals(value)))
+      Log.d("Info/"+TAG, "ID:"+label+" API Value:"+value+" Existing Value:"+ret!!+" Constancy:"+(ret.equals(value)))
       return ret;
     }
   }

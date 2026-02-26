@@ -22,7 +22,7 @@ To compile a plugin into a JAR file and automatically deploy it to the TestBed C
 `./gradlew :test-sample:jar`
 
 The build script is configured to automatically place the generated JAR at:
-`../testbedui/composeApp/plugins/test-sample/test-sample.jar`
+`../testbed-core/composeApp/plugins/test-sample/test-sample.jar`
 
 ### 2. Building the Target Android App
 

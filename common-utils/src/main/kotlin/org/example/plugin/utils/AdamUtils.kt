@@ -128,6 +128,7 @@ object AdamUtils {
             val channel = adb.adb.execute(request, this, adb.deviceSerial)
 
             for (line in channel) {
+               logi(line)
                 val logLine = LogLine.of(line, deviceTimezone)
                 if (logLine is LogLine.Log && logLine.tag == tagWait) {
                     println("matched logcat line found: ${logLine.text}")

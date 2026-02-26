@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
       }
     }
     Thread.sleep(2000);
-    Log.d(TAG,"Test Result:${res[0]}/${res[1]}/${res[2]}/${res[3]}");
+    Log.i("FDP_ACC_1_TEST:RESULT","${res[0]}/${res[1]}/${res[2]}/${res[3]}");
   }
 
   fun getPrefValueOrWrite(label:String,value:String):String{
@@ -74,14 +74,14 @@ class MainActivity : AppCompatActivity() {
     val ret = sharedPref.getString(label,"")
     return if(ret==""){
       if(!ret.equals(value)){
-        Log.d("Pref", "New API Value=>"+value+" assigned.")
+        Log.d("Info/"+TAG, "New API Value=>"+value+" assigned.")
       } else {
-        Log.d("Pref", "It's a panic case. Both api value and existing value are blank.")
+        Log.d("Info/"+TAG, "It's a panic case. Both api value and existing value are blank.")
       }
       sharedPref.edit().putString(label,value).apply()
       value;
     } else {
-      Log.d("Pref", "ID:"+label+" API Value:"+value+" Existing Value:"+ret!!+" Constancy:"+(ret.equals(value)))
+      Log.d("Info/"+TAG, "ID:"+label+" API Value:"+value+" Existing Value:"+ret!!+" Constancy:"+(ret.equals(value)))
       ret;
     }
   }
