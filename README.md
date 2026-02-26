@@ -28,7 +28,7 @@ The build script is configured to automatically place the generated JAR at:
 
 To build the sample Android application for testing on a device:
 
-`./gradlew :apps:target-test-app:assembleDebug`
+`./gradlew :apps:target-test-app:assemble` (Use assemble not assembleDebug)
 
 The output APK will be located at:
 `apps/target-test-app/build/outputs/apk/debug/target-test-app-debug.apk`

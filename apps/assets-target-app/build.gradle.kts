@@ -77,6 +77,3 @@ tasks.register<Copy>("copyApkToCore") {
 tasks.named("assemble") {
     finalizedBy("copyApkToCore")
 }
-tasks.named("assembleDebug") {
-    finalizedBy("copyApkToCore")
-}

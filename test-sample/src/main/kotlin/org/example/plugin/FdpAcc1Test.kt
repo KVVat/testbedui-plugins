@@ -26,7 +26,11 @@ class FdpAcc1Test {
     private val TEST_APK by lazy {
         File(JUnitBridge.resourceDir, "assets-target-app.apk")
     }
+    private val ATTACKER_APK by lazy {
+        File(JUnitBridge.resourceDir, "assets-attacker-app.apk")
+    }
     private val TEST_PACKAGE = "org.example.assets.target"
+    private val ATTACKER_PACKAGE = "org.example.assets.attacker"
     /*
     @Before
     fun setUp()
@@ -37,7 +41,9 @@ class FdpAcc1Test {
     @After
     fun teardown() {
         runBlocking {
-            AdamUtils.uninstallApk(client, serial, TEST_PACKAGE)
+            logi("Tearing down test... Uninstalling apps.")
+            try {AdamUtils.uninstallApk(client, serial, TEST_PACKAGE)} catch (e: Exception) {}
+            try {AdamUtils.uninstallApk(client, serial, ATTACKER_PACKAGE)} catch (e: Exception) {}
         }
     }
 
@@ -110,5 +116,41 @@ class FdpAcc1Test {
             loge("FAILURE: Data access control. Expected '$expected' but got '$result2'")
             Assert.fail("Access control check failed")
         }
+
+
+        if (!ATTACKER_APK.exists()) {
+            loge("Attacker APK not found at: ${ATTACKER_APK.absolutePath}")
+            return@runBlocking
+        }
+
+        // 8. Targetアプリで再度データを準備 (Attackerが盗めるかどうかの標的を作成)
+        logi("Preparing data in target app for attacker test...")
+        client.execute(
+            ShellCommandRequest("am start -n $TEST_PACKAGE/$TEST_PACKAGE.PrepareActivity"),
+            serial
+        )
+        delay(1000)
+        // 9. Attackerアプリをインストールして起動
+        AdamUtils.installApk(client, serial, ATTACKER_APK)
+        delay(1000)
+
+        logi("Launching Attacker MainActivity...")
+        client.execute(
+            ShellCommandRequest("am start -n $ATTACKER_PACKAGE/$ATTACKER_PACKAGE.MainActivity"),
+            serial
+        )
+
+        // 10. Check Result (Attackerからのアクセス: Media以外は失敗するはず)
+        val result3 = AdamUtils.waitLogcatLine(100, "FDP_ACC_1_TEST:RESULT", adbDeviceRule)
+        logi("Result 3 (Attacker): $result3")
+
+        val expectedAttacker = "false/false/true/false"
+        if (result3?.text?.contains(expectedAttacker) == true) {
+            logp("SUCCESS: Attacker access control verified (Sandbox is working).")
+        } else {
+            loge("FAILURE: Attacker access control. Expected '$expectedAttacker' but got '$result3'")
+            Assert.fail("Attacker access check failed")
+        }
+
     }
 }

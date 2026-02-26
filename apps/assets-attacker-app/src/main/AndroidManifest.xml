@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Required only if your app needs to access images or photos
-         that other apps created. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <!-- If your app doesn't need to access media files that other apps created,
-    set the "maxSdkVersion" attribute to "28" instead. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32"
-        />
+        android:maxSdkVersion="32" />
 
     <application
         android:label="AssetsAttackerApp">
@@ -21,14 +23,5 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".PrepareActivity"
-            android:theme="@style/Theme.AppCompat"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-            </intent-filter>
-        </activity>
     </application>
-
 </manifest>

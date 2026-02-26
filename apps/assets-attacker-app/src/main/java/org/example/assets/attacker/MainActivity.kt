@@ -6,84 +6,96 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
-import androidx.room.Room
-import org.example.assets.attacker.AppDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
 
-//The module simply record Unique Id to the configuration file
 class MainActivity : AppCompatActivity() {
-  val TAG:String = "FDP_ACC_1_TEST";
+    val TAG: String = "FDP_ACC_1_TEST"
+    val TARGET_PACKAGE = "org.example.assets.target" // ★標的のパッケージ名
 
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    setContentView(R.layout.activity_main)
-    //Prepare Data
-    val res:Array<Boolean> = arrayOf(true,true,true,true);
-    //Access Check
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
 
-    res[0] = "Success".equals(getPrefValueOrWrite("SampleValue",""));
-    Log.d("Info/"+TAG,"Preference:" +res[0])
+        // デフォルトは全てアクセス成功(true)と仮定し、失敗したら false に落とす
+        val res: Array<Boolean> = arrayOf(true, true, true, true)
 
-    if(!File(applicationContext.getFilesDir(), "testfile.txt").exists()){
-      res[1] = false
-    }
-    Log.d("Info/"+TAG,"File:" +res[1])
-    CoroutineScope(Dispatchers.IO).launch {
-      val collection =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-          MediaStore.Images.Media.getContentUri(
-            MediaStore.VOLUME_EXTERNAL
-          )
-        } else {
-          MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        // 1. Preference Attack (TargetのContextを奪取して覗き見を試みる)
+        try {
+            // 他アプリのContextを強制的に生成
+            val targetContext = createPackageContext(TARGET_PACKAGE, 0)
+            val sharedPref = targetContext.getSharedPreferences(TAG, Context.MODE_PRIVATE)
+            val prefValue = sharedPref.getString("SampleValue", "")
+            res[0] = "Success" == prefValue
+            Log.d("Info/$TAG", "Preference Attack: ${res[0]} (Value: $prefValue)")
+        } catch (e: Exception) {
+            Log.e("Info/$TAG", "Preference Attack Failed (Sandbox blocked): ${e.message}")
+            res[0] = false // SecurityException等で弾かれたら安全証明
         }
 
-      val contentResolver = application.contentResolver
-      val cursor = contentResolver.query(collection,
-                                         arrayOf(MediaStore.Video.Media._ID,MediaStore.Images.Media.DISPLAY_NAME),
-                                         "${MediaStore.Images.Media.DISPLAY_NAME}=?", arrayOf(TAG+".jpg"),
-                                         null);
-      if (cursor != null && cursor.moveToFirst()) {
-        Log.d("Info/"+TAG, "Media: Found")
-        cursor.close()
-      } else {
-        res[2] = false;
-        Log.d("Info/"+TAG,"Media: Not Found");
-      }
-    }
-    CoroutineScope(Dispatchers.IO).launch {
-      //Check
-      val db = Room.databaseBuilder(
-        applicationContext,
-        AppDatabase::class.java, "database-name"
-      ).build()
-      //
-      if(db.userDao().loadAllByIds(intArrayOf(1)).size == 0){
-        res[3] = false;
-      }
-    }
-    Thread.sleep(2000);
-    Log.d(TAG,"Test Result:${res[0]}/${res[1]}/${res[2]}/${res[3]}");
-  }
+        // 2. Internal File Attack (Linuxの絶対パスで直接ファイルを読みに行く)
+        try {
+            val targetFile = File("/data/data/$TARGET_PACKAGE/files", "testfile.txt")
+            if (targetFile.exists() && targetFile.canRead()) {
+                res[1] = true
+                Log.d("Info/$TAG", "File Attack: Success (VULNERABILITY!)")
+            } else {
+                res[1] = false
+                Log.d("Info/$TAG", "File Attack: Failed (Access Denied by Linux Permissions)")
+            }
+        } catch (e: Exception) {
+            Log.e("Info/$TAG", "File Attack Failed: ${e.message}")
+            res[1] = false
+        }
 
-  fun getPrefValueOrWrite(label:String,value:String):String{
-    val sharedPref = getSharedPreferences(TAG, Context.MODE_PRIVATE)
-    val ret = sharedPref.getString(label,"")
-    return if(ret==""){
-      if(!ret.equals(value)){
-        Log.d("Pref", "New API Value=>"+value+" assigned.")
-      } else {
-        Log.d("Pref", "It's a panic case. Both api value and existing value are blank.")
-      }
-      sharedPref.edit().putString(label,value).apply()
-      value;
-    } else {
-      Log.d("Pref", "ID:"+label+" API Value:"+value+" Existing Value:"+ret!!+" Constancy:"+(ret.equals(value)))
-      ret;
-    }
-  }
+        // 3. MediaStore Attack (Public Storageなのでこれは読めてしまうのが正解)
+        CoroutineScope(Dispatchers.IO).launch {
+            val collection =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+                } else {
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                }
 
+            val cursor = application.contentResolver.query(
+                collection,
+                arrayOf(MediaStore.Video.Media._ID, MediaStore.Images.Media.DISPLAY_NAME),
+                "${MediaStore.Images.Media.DISPLAY_NAME}=?", arrayOf("$TAG.jpg"),
+                null
+            )
+            if (cursor != null && cursor.moveToFirst()) {
+                Log.d("Info/$TAG", "Media Attack: Found Target's Image")
+                res[2] = true
+                cursor.close()
+            } else {
+                res[2] = false
+                Log.d("Info/$TAG", "Media Attack: Not Found")
+            }
+        }
+
+        // 4. Room DB Attack (SQLite:Access directly to DB file)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val dbFile = File("/data/data/$TARGET_PACKAGE/databases", "database-name")
+                if (dbFile.exists() && dbFile.canRead()) {
+                    res[3] = true
+                    Log.d("Info/$TAG", "DB Attack: Success (VULNERABILITY!)")
+                } else {
+                    res[3] = false
+                    Log.d("Info/$TAG", "DB Attack: Failed (Access Denied by Linux Permissions)")
+                }
+            } catch (e: Exception) {
+                Log.e("Info/$TAG", "DB Attack Failed: ${e.message}")
+                res[3] = false
+            }
+        }
+
+        // 非同期処理を待つ
+        Thread.sleep(2000)
+
+        // 最終結果出力 (Targetと同じフォーマット)
+        Log.i("FDP_ACC_1_TEST:RESULT", "${res[0]}/${res[1]}/${res[2]}/${res[3]}")
+    }
 }
