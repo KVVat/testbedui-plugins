@@ -126,7 +126,7 @@ class PrepareActivity : AppCompatActivity() {
         close()
       }
       Log.d("Info/"+TAG,
-            "Successfully wrote a test file into privatedir named testfile.txt")
+            "Successfully wrote a test file into private dir named testfile.txt")
 
     } catch (ex: IOException) {
       throw RuntimeException("IOException")
