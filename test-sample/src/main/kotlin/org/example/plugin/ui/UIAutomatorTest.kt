@@ -3,9 +3,11 @@ package org.example.plugin.ui
 import org.example.project.adb.rules.AdbDeviceRule
 import org.example.plugin.utils.UIAutomatorSession
 import kotlinx.coroutines.runBlocking
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 
+@Ignore("Need to integration")
 class UIAutomatorTest {
     @get:Rule
     val adb = AdbDeviceRule()

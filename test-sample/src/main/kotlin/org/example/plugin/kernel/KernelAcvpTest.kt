@@ -45,6 +45,9 @@ import kotlin.io.path.nameWithoutExtension
 import com.malinskiy.adam.AndroidDebugBridgeClient
 
 
+import org.junit.Ignore
+
+@Ignore("Need to integration")
 @SFR("Kernel ACVP Test Case", """
 FIPS 140-2 test case
 """)

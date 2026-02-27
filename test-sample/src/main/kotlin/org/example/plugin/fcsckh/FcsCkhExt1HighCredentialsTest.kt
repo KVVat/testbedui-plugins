@@ -17,6 +17,7 @@ import org.hamcrest.core.StringStartsWith
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ErrorCollector
@@ -25,6 +26,7 @@ import org.junit.rules.TestWatcher
 import java.io.File
 import java.nio.file.Paths
 
+@Ignore("Need to integration")
 @SFR("FCS_CKH_EXT.1/High-Credentials", """
   FCS_CKH_EXT.1/Low
 

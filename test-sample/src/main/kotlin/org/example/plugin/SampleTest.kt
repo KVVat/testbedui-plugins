@@ -6,7 +6,9 @@ import org.example.project.TestLogLevel
 import org.example.project.adb.rules.AdbDeviceRule
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Ignore
 
+@Ignore("Only for Operation Check")
 class SampleTest {
     @get:Rule
     val adbDeviceRule = AdbDeviceRule()

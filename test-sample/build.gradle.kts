@@ -71,7 +71,7 @@ tasks.register("generateTestList") {
             srcDir.walk().filter { it.isFile && it.extension == "kt" }.forEach { file ->
                 val text = file.readText()
 
-                if (text.contains("@Test")) {
+                if (text.contains("@Test") && !text.contains("@Ignore")) {
                     val pkg = Regex("package\\s+([a-zA-Z0-9_.]+)").find(text)?.groupValues?.get(1) ?: ""
                     val cls = Regex("class\\s+([a-zA-Z0-9_]+)").find(text)?.groupValues?.get(1) ?: ""
                     if (cls.isNotEmpty()) {

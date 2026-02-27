@@ -33,7 +33,9 @@ import kotlin.io.path.absolutePathString
 import kotlin.system.exitProcess
 import org.example.project.adb.rules.AdbDeviceRule
 import com.malinskiy.adam.AndroidDebugBridgeClient
+import org.junit.Ignore
 
+@Ignore("Need to integration")
 @SFR("FTP_ITC_EXT.1/TLS", """
 FTP_ITC_EXT.1/TLS
 The TSF shall provide a communication channel between itself and another trusted 

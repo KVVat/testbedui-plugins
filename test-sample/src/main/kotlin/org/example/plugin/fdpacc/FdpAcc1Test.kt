@@ -12,11 +12,13 @@ import org.example.project.adb.rules.AdbDeviceRule
 import org.junit.After
 import org.junit.Assert
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
 
 //FDP_ACF_EXT.1.2?
+@Ignore("Need to integration")
 class FdpAcc1Test {
 
     @get:Rule

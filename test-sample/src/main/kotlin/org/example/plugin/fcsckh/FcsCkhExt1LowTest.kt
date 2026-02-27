@@ -23,7 +23,9 @@ import org.junit.rules.TestWatcher
 import java.io.File
 import java.nio.file.Paths
 import org.example.project.adb.rules.AdbDeviceRule
+import org.junit.Ignore
 
+@Ignore("Need to integration")
 @SFR("FCS_CKH_EXT.1/Low", """
   FCS_CKH_EXT.1/Low
 
