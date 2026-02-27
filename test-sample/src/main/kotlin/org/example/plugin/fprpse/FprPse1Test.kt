@@ -28,8 +28,14 @@ import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
 import org.hamcrest.CoreMatchers.`is` as Is
 import com.malinskiy.adam.AndroidDebugBridgeClient
+import org.junit.Ignore
 
-
+@Ignore(""""
+ Maybe omitted from MDFPP3.1, Need Confirmation.
+ It comes from CC Part2 Component->ETSI TS 103 732-1 Consumer Mobile Device Protection Profile.
+ FPR_PSE.1/Advertisers
+ FPR_PSE.1/APP_Dev
+ """)
 @SFR("FPR_PSE.1", """
  FPR_PSE.1 Pseudonymity
  
@@ -57,8 +63,6 @@ class FprPse1Test {
 
   //Asset Log
   private val a: TestAssertLogger by lazy { TestAssertLogger(name) }
-
-
 
   @Before
   fun setup() {

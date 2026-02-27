@@ -18,7 +18,6 @@ import org.junit.Test
 import java.io.File
 
 //FDP_ACF_EXT.1.2?
-@Ignore("Need to integration")
 class FdpAcc1Test {
 
     @get:Rule

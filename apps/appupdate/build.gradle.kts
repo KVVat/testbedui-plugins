@@ -16,6 +16,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
     //generate key script
     //cd apps/appupdate
     //keytool -genkey -v -keystore mismatched.keystore -alias mismatched -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=Mismatched, OU=Test, O=CC, L=Tokyo, S=Tokyo, C=JP"
@@ -25,6 +26,19 @@ android {
             storePassword = "password"
             keyAlias = "mismatched"
             keyPassword = "password"
+        }
+    }
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("mismatched") // ここで指定
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+
+        // mismatched検証専用のビルドタイプを作成
+        create("mismatchedType") {
+            initWith(getByName("debug"))
+            signingConfig = signingConfigs.getByName("mismatched")
         }
     }
     flavorDimensions.add("version")
@@ -76,7 +90,7 @@ dependencies {
 tasks.register<Exec>("generateAndDeployTestApks") {
     group = "verification"
     // 各フレーバーのビルドに依存させる
-    dependsOn("assembleV1Debug", "assembleV2Debug", "assembleMismatchedDebug", "assembleV1Release")
+    dependsOn("assembleV1Debug", "assembleV2Debug",  "assembleMismatchedMismatchedType","assembleV1Release")
 
     val buildDir = layout.buildDirectory.get().asFile.absolutePath
     val targetDir = file("${rootProject.projectDir}/../testbed-core/composeApp/resources").absolutePath

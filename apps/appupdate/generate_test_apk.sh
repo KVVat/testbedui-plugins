@@ -13,8 +13,8 @@ cp "${BUILD_DIR}/outputs/apk/v1/debug/appupdate-v1-debug.apk" "${TARGET_DIR}/app
 cp "${BUILD_DIR}/outputs/apk/v2/debug/appupdate-v2-debug.apk" "${TARGET_DIR}/appupdate-v2.apk"
 
 # 3. Mismatched Signature APK (Same Version as V1 but different key)
-cp "${BUILD_DIR}/outputs/apk/mismatched/debug/appupdate-mismatched-debug.apk" "${TARGET_DIR}/appupdate-mismatched.apk"
-
+# cp "${BUILD_DIR}/outputs/apk/mismatched/debug/appupdate-mismatched-debug.apk" "${TARGET_DIR}/appupdate-mismatched.apk"
+cp "${BUILD_DIR}/outputs/apk/mismatched/mismatchedType/appupdate-mismatched-mismatchedType.apk" "${TARGET_DIR}/appupdate-mismatched.apk"
 # 4. Unsigned APK (Releaseビルドの署名なしを使用)
 cp "${BUILD_DIR}/outputs/apk/v1/release/appupdate-v1-release-unsigned.apk" "${TARGET_DIR}/appupdate-unsigned.apk"
 
