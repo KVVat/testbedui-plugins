@@ -8,8 +8,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.example.plugin.utils.ADSRPTestWatcher
 import org.example.plugin.utils.AdamUtils
+import org.example.plugin.utils.FileResource
 import org.example.plugin.utils.SFR
 import org.example.plugin.utils.TestAssertLogger
+import org.example.plugin.utils.logi
 import org.example.project.adb.rules.AdbDeviceRule
 import org.hamcrest.MatcherAssert
 import org.hamcrest.core.StringStartsWith
@@ -25,73 +27,62 @@ import org.junit.rules.TestWatcher
 import java.io.File
 import java.nio.file.Paths
 
-@Ignore("Need to integration")
-@SFR("FDP_DAR_EXT.1/Protected Data Encryption", """
-  FFDP_DAR_EXT.1/Protected Data Encryption
 
-  FCS_CKH.1.1/Low The TSF shall support a key hierarchy for the data encryption key(s) 
-  for Low user data assets.
-  
-  FCS_CKH.1.2/Low The TSF shall ensure that all keys in the key hierarchy are derived and/or 
-  generated according to [assignment: description of how each key in the hierarchy is derived and/or
-  generated, with which key lengths and according to which standards] ensuring that the key hierarchy
-  uses the DUK directly or indirectly in the derivation of the data encryption key(s) for Low user 
-  data assets. 
+@SFR("FDP_DAR_EXT.1/Protected Data Encryption", """
+  FDP_DAR_EXT.1.1: Encryption shall cover all protected data.
+    
+    [Evaluation Activity / Test]
+    The evaluator shall reboot the device and verify that the application data 
+    (Credential Encrypted Storage) cannot be read before first unlock (BFU state), 
+    while verifying that Device Encrypted Storage (DES) remains accessible for 
+    Direct Boot aware applications.
+    
+    (FCS_CKH_EXT.1/Low in MDFPP 3.2)
   """)
 class FdpDarExt1Test {
 
   private val TEST_PACKAGE = "com.example.directboot"
-  private val TEST_MODULE = "directboot-debug.apk"
+  private val TEST_MODULE = "directboot.apk"
 
   @get:Rule
   val adb = AdbDeviceRule()
-  private val client: AndroidDebugBridgeClient by lazy { adb.adb }
-
+    private val client: AndroidDebugBridgeClient by lazy { adb.adb }
+     private val serial get() = adb.deviceSerial
   @get:Rule
   val watcher: TestWatcher by lazy { ADSRPTestWatcher(adb) }
   @get:Rule
   val errs: ErrorCollector = ErrorCollector()
   @get:Rule
-  val name: TestName = TestName()
-  //Asset Log
-  private val a: TestAssertLogger by lazy { TestAssertLogger(name) }
+  val testName: TestName = TestName()
+  private val assert: TestAssertLogger by lazy { TestAssertLogger(testName) }
 
+    private val TEST_APK by lazy { FileResource(TEST_MODULE) }
 
   @Before
   fun setup() {
       runBlocking {
-          client.execute(UninstallRemotePackageRequest(TEST_PACKAGE), adb.deviceSerial)
-          client.execute(
-              ShellCommandRequest("rm /data/local/tmp/$TEST_MODULE"),
-              adb.deviceSerial
-          )
+          logi("Setting up ${testName.methodName}...")
+          try { AdamUtils.uninstallApk(client, serial, TEST_PACKAGE) } catch (e: Exception) {}
       }
-
   }
+
   @After
   fun teardown() {
       runBlocking {
-          client.execute(UninstallRemotePackageRequest(TEST_PACKAGE), adb.deviceSerial)
-          client.execute(
-              ShellCommandRequest("rm /data/local/tmp/$TEST_MODULE"),
-              adb.deviceSerial
-          )
+          logi("Setting up ${testName.methodName}...")
+          try { AdamUtils.uninstallApk(client, serial, TEST_PACKAGE) } catch (e: Exception) {}
       }
   }
-
-
 
   @Test
   fun testDeviceEncryptedStorage() {
       runBlocking {
           //install file
-          val file_apk =
-              File(Paths.get("src", "test", "resources", TEST_MODULE).toUri())
 
-          val ret = AdamUtils.installApk(client, adb.deviceSerial, file_apk)
+          val ret = AdamUtils.installApk(client, adb.deviceSerial, TEST_APK)
           Assert.assertTrue(ret.startsWith("Success"))
           MatcherAssert.assertThat(
-              a.Msg("Verify Install apk v1 (expect=Success)"),
+              assert.msg("Verify Install apk v1 (expect=Success)"),
               ret, StringStartsWith("Success")
           )
 
@@ -107,26 +98,23 @@ class FdpDarExt1Test {
               AdamUtils.waitLogcatLine(50, "FCS_CKH_EXT_TEST", adb)
           //assertThat { result }.isNotNull()
           errs.checkThat(
-              a.Msg("Check The application booted.(It prepares directboot.)"),
+              assert.msg("Check The application booted.(It prepares directboot.)"),
               result!!.text,
               StringStartsWith("Booted")
           )
-
-
           Thread.sleep(1000 * 5)
-
           //(Require)Reboot Device
           //1. We expect the bootloader of the device is unlocked.
           //2. Users need to relaunch the device quickly
           client.execute(request = RebootRequest(), serial = adb.deviceSerial)
-          println("> ** Rebooting : Please Reboot Device **")
+          logi("> ** Rebooting : Please Reboot Device **")
           Thread.sleep(1000 * 10)
           //Note:  the connection to the adb server will be dismissed during the rebooting
-          println("> ** Maybe it requires manual operation : Please Reboot the target device as fast as possible **")
+          logi("> ** Maybe it requires manual operation : Please Reboot the target device as fast as possible **")
           adb.waitBoot()
-          Thread.sleep(1000 * 5)
-          println("> ** Reconnected")
-          result = AdamUtils.waitLogcatLine(200, "FCS_CKH_EXT_TEST", adb)
+          Thread.sleep(1000 * 10)
+          logi("> ** Reconnected")
+          result = AdamUtils.waitLogcatLine(500, "FCS_CKH_EXT_TEST", adb)
           if (result == null) {
               result = AdamUtils.LogcatResult("", "<null>")
           }
@@ -135,12 +123,10 @@ class FdpDarExt1Test {
           // 1. Check if we can access to the DES(Device Encrypted Storage)
           // 2. Check we can not access to the CES
           errs.checkThat(
-              a.Msg("Check if we can access to the DES/We can not accees to CES."),
+              assert.msg("Check if we can access to the DES/We can not accees to CES."),
               result.text,
               StringStartsWith("des=Success,ces=Failed")
           )
-
-
       }
   }
 }

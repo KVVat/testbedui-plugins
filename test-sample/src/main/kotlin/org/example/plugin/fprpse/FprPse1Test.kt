@@ -125,13 +125,13 @@ class FprPse1Test {
       //Expected : All unique id values should be maintained
       //Note : Each test should not interrupt execution of the test case
       println(dictB)
-      errs.checkThat(a.Msg("Verify UUID same"),dictA["UUID"],IsEqual(dictB["UUID"]))
-      errs.checkThat(a.Msg("Verify ADID same"),dictA["ADID"],IsEqual(dictB["ADID"]))
-      errs.checkThat(a.Msg("Verify AID same"),dictA["AID"],IsEqual(dictB["AID"]))
-      errs.checkThat(a.Msg("Verify WIDEVINE same"),dictA["WIDEVINE"],IsEqual(dictB["WIDEVINE"]))
-      errs.checkThat(a.Msg("Verify IMEI1 is blank"),dictA["IMEI1"],IsEqual(""))
-      errs.checkThat(a.Msg("Verify IMEI2 is blank"),dictA["IMEI2"],IsEqual(""))
-      //errs.checkThat(a.Msg("Verify DeviceSerial is blank"),dictA["DeviceSerial"],IsEqual(""))
+      errs.checkThat(a.msg("Verify UUID same"),dictA["UUID"],IsEqual(dictB["UUID"]))
+      errs.checkThat(a.msg("Verify ADID same"),dictA["ADID"],IsEqual(dictB["ADID"]))
+      errs.checkThat(a.msg("Verify AID same"),dictA["AID"],IsEqual(dictB["AID"]))
+      errs.checkThat(a.msg("Verify WIDEVINE same"),dictA["WIDEVINE"],IsEqual(dictB["WIDEVINE"]))
+      errs.checkThat(a.msg("Verify IMEI1 is blank"),dictA["IMEI1"],IsEqual(""))
+      errs.checkThat(a.msg("Verify IMEI2 is blank"),dictA["IMEI2"],IsEqual(""))
+      //errs.checkThat(a.msg("Verify DeviceSerial is blank"),dictA["DeviceSerial"],IsEqual(""))
 
       println(">Uninstall/Install again the target apk.")
       //uninstall application =>
@@ -156,13 +156,13 @@ class FprPse1Test {
       //You should set allowbackup option in module's androidmanifest.xml to false
       //for passing this test.(the option makes application a bit vulnerable to attack)
       //Note : Each test should not interrupt execution of the test case
-      errs.checkThat(a.Msg("Verify UUID changes"),dictA["UUID"],Is(not(dictC["UUID"])))
-      errs.checkThat(a.Msg("Verify ADID same"),dictA["ADID"],IsEqual(dictC["ADID"]))
-      errs.checkThat(a.Msg("Verify AID same"),dictA["AID"],IsEqual(dictC["AID"]))
-      errs.checkThat(a.Msg("Verify WIDEVINE same"),dictA["WIDEVINE"],IsEqual(dictC["WIDEVINE"]))
-      errs.checkThat(a.Msg("Verify IMEI1 is blank"),dictA["IMEI1"],IsEqual(""))
-      errs.checkThat(a.Msg("Verify IMEI2 is blank"),dictA["IMEI2"],IsEqual(""))
-      //errs.checkThat(a.Msg("Verify DeviceSerial is blank"),dictA["DeviceSerial"],IsEqual(""))
+      errs.checkThat(a.msg("Verify UUID changes"),dictA["UUID"],Is(not(dictC["UUID"])))
+      errs.checkThat(a.msg("Verify ADID same"),dictA["ADID"],IsEqual(dictC["ADID"]))
+      errs.checkThat(a.msg("Verify AID same"),dictA["AID"],IsEqual(dictC["AID"]))
+      errs.checkThat(a.msg("Verify WIDEVINE same"),dictA["WIDEVINE"],IsEqual(dictC["WIDEVINE"]))
+      errs.checkThat(a.msg("Verify IMEI1 is blank"),dictA["IMEI1"],IsEqual(""))
+      errs.checkThat(a.msg("Verify IMEI2 is blank"),dictA["IMEI2"],IsEqual(""))
+      //errs.checkThat(a.msg("Verify DeviceSerial is blank"),dictA["DeviceSerial"],IsEqual(""))
 
     }
   }

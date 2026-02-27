@@ -67,7 +67,7 @@ class FdpTudExtTest {
     }
     @Test
     fun testUserAssets() = runBlocking {
-        //logi(logger.Msg("Starting FPT_TUD_EXT.3: Unsigned APK rejection test")!!)
+        //logi(logger.msg("Starting FPT_TUD_EXT.3: Unsigned APK rejection test")!!)
 
     }
     /**
@@ -75,16 +75,16 @@ class FdpTudExtTest {
      */
     @Test
     fun testUnsignedApkRejection() = runBlocking {
-        logi(logger.Msg("Starting FPT_TUD_EXT.3: Unsigned APK rejection test")!!)
+        logi(logger.msg("Starting FPT_TUD_EXT.3: Unsigned APK rejection test")!!)
 
         try {
             AdamUtils.installApk(client, serial, APK_UNSIGNED)
             // ここに到達したら失敗（インストールできてしまった）
-            loge(logger.Msg("FAILURE: Unsigned APK was unexpectedly installed.")!!)
+            loge(logger.msg("FAILURE: Unsigned APK was unexpectedly installed.")!!)
             Assert.fail("TSF allowed installation of an unsigned APK.")
         } catch (e: Exception) {
             // Success: インストールが拒否された
-            logp(logger.Msg("SUCCESS: Unsigned APK was correctly rejected by TSF.")!!)
+            logp(logger.msg("SUCCESS: Unsigned APK was correctly rejected by TSF.")!!)
             logi("Error details: ${e.message}")
         }
 
@@ -95,7 +95,7 @@ class FdpTudExtTest {
      */
     @Test
     fun testMismatchedSignatureUpdateRejection() = runBlocking {
-        logi(logger.Msg("Starting FPT_TUD_EXT.5: Same-sign-on test")!!)
+        logi(logger.msg("Starting FPT_TUD_EXT.5: Same-sign-on test")!!)
 
         // 1. 正当な鍵で署名された v1 をインストール
         logi("Step 1: Installing original signed APK...")
@@ -107,10 +107,10 @@ class FdpTudExtTest {
             // reinstall=true でアップデートを試行
             AdamUtils.installApk(client, serial, APK_MISMATCHED, reinstall = true)
 
-            loge(logger.Msg("FAILURE: Update with mismatched signature was unexpectedly allowed.")!!)
+            loge(logger.msg("FAILURE: Update with mismatched signature was unexpectedly allowed.")!!)
             Assert.fail("TSF allowed update with a different signature (Same-sign-on violation).")
         } catch (e: Exception) {
-            logp(logger.Msg("SUCCESS: Mismatched signature update was correctly rejected.")!!)
+            logp(logger.msg("SUCCESS: Mismatched signature update was correctly rejected.")!!)
             logi("Error details: ${e.message}")
         }
     }
@@ -120,7 +120,7 @@ class FdpTudExtTest {
      */
     @Test
     fun testVersionDowngradeRejection() = runBlocking {
-        logi(logger.Msg("Starting FPT_TUD_EXT.5: Rollback protection test")!!)
+        logi(logger.msg("Starting FPT_TUD_EXT.5: Rollback protection test")!!)
 
         // 1. バージョンの高い APK (v2) をインストール
         logi("Step 1: Installing higher version APK (v2)...")
@@ -131,10 +131,10 @@ class FdpTudExtTest {
         try {
             AdamUtils.installApk(client, serial, APK_V1, reinstall = true)
 
-            loge(logger.Msg("FAILURE: Version downgrade was unexpectedly allowed.")!!)
+            loge(logger.msg("FAILURE: Version downgrade was unexpectedly allowed.")!!)
             Assert.fail("TSF allowed installation of a lower version over a higher one.")
         } catch (e: Exception) {
-            logp(logger.Msg("SUCCESS: Version downgrade was correctly rejected by TSF.")!!)
+            logp(logger.msg("SUCCESS: Version downgrade was correctly rejected by TSF.")!!)
             logi("Error details: ${e.message}")
         }
     }

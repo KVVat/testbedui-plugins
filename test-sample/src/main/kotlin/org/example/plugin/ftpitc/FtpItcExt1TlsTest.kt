@@ -199,7 +199,7 @@ class FtpItcExt1TlsTest {
     val dnspkts = document.selectNodes("/pdml/packet/proto[@name='dns']")
     if(dnspkts.size == 0) {
       //there are no dns records...exit
-      //errs.checkThat(a.Msg("Need at least one dns packet in cocument"), dnspkts.size,)
+      //errs.checkThat(a.msg("Need at least one dns packet in cocument"), dnspkts.size,)
       println("need at least one dns packet to continue")
       Assert.assertTrue(false)
       return
@@ -275,14 +275,14 @@ class FtpItcExt1TlsTest {
                   //should assert
                   // println("found no ciphers which is required to implement.")
                   errs.checkThat(
-                    a.Msg("Found no ciphers which is required to implement.)"),
+                    a.msg("Found no ciphers which is required to implement.)"),
                     true, IsEqual(false)
                   )
                 }
               } else {
                 //should assert
                 errs.checkThat(
-                  a.Msg("found no ciphers block in this tls packet"),
+                  a.msg("found no ciphers block in this tls packet"),
                   true, IsEqual(false)
                 )
               }
@@ -305,13 +305,13 @@ class FtpItcExt1TlsTest {
                   println("The client supports tls v1.2 or later")
                 } else {
                   errs.checkThat(
-                    a.Msg("Failure : The client does not support tls v1.2 or later)"),
+                    a.msg("Failure : The client does not support tls v1.2 or later)"),
                     true, IsEqual(false)
                   )
                 }
               } else {
                 errs.checkThat(
-                  a.Msg("Failure :  found no tlsversion block in this tls packet)"),
+                  a.msg("Failure :  found no tlsversion block in this tls packet)"),
                   true, IsEqual(false)
                 )
               }
@@ -329,14 +329,14 @@ class FtpItcExt1TlsTest {
                 } else {
                   //assert
                   errs.checkThat(
-                    a.Msg("Failure : x509af version is insuffcient"),
+                    a.msg("Failure : x509af version is insuffcient"),
                     true, IsEqual(false)
                   )
                 }
               } else {
 
                 errs.checkThat(
-                  a.Msg("Failure : found no x509af version block in this tls packet"),
+                  a.msg("Failure : found no x509af version block in this tls packet"),
                   true, IsEqual(false))
 
               }
@@ -371,7 +371,7 @@ class FtpItcExt1TlsTest {
                 }
               } else {
                 errs.checkThat(
-                  a.Msg("Failure : found no expiration date records"),
+                  a.msg("Failure : found no expiration date records"),
                   true, IsEqual(false))
               }
               certLookupDone = true
@@ -389,7 +389,7 @@ class FtpItcExt1TlsTest {
     }
     if(certProblemFound){
       errs.checkThat(
-        a.Msg("Failure : there were problem in cert record, but connection was not canceled."),
+        a.msg("Failure : there were problem in cert record, but connection was not canceled."),
         true, IsEqual(false))
     }
   }

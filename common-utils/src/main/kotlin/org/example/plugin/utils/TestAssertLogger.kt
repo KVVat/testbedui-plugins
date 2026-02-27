@@ -7,10 +7,10 @@ import org.junit.runner.Description
 class TestAssertLogger(name: TestName){
   var inc:Int = 0;
   val name: TestName =name
-  fun Msg(desc:String):String?{
-    inc++;
-    val line = name.methodName + "(" + DecimalFormat("000").format(inc) +"):"+ desc;
-    println(line)
-    return line
-}
+    fun msg(desc:String):String?{
+        inc++;
+        val line = name.methodName + "(" + DecimalFormat("000").format(inc) +"):"+ desc;
+        logi(line)
+        return line
+    }
 }

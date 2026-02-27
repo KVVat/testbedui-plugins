@@ -150,7 +150,7 @@ class FcsCkhExt1HighCredentialsTest {
       val ret = AdamUtils.installApk(client, adb.deviceSerial, file_apk)
       assertTrue(ret.startsWith("Success"))
       MatcherAssert.assertThat(
-        a.Msg("Verify Install apk(expect=Success)"),
+        a.msg("Verify Install apk(expect=Success)"),
         ret, StringStartsWith("Success")
       )
 

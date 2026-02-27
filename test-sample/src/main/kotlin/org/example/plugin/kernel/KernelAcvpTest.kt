@@ -241,7 +241,7 @@ class KernelAcvpTest {
         println("[process error]: $fname (${ex.message})")
         result = false
       }
-      errs.checkThat(a.Msg("Evaluate $fname"),result, IsEqual(true))
+      errs.checkThat(a.msg("Evaluate $fname"),result, IsEqual(true))
     }
   }
 
@@ -284,7 +284,7 @@ class KernelAcvpTest {
       val fname = it.fileName.nameWithoutExtension
       val sr = AdamUtils.shellRequest("cd /data/local/tmp/;./acvptool -json vectors/$fname -wrapper ./acvp_kernel_harness_arm64 > actual/$fname",adb)
       val line:String
-      errs.checkThat(a.Msg("Execute acvptool $fname"),sr.exitCode, IsEqual(0))
+      errs.checkThat(a.msg("Execute acvptool $fname"),sr.exitCode, IsEqual(0))
       if(sr.exitCode!=0) {
         line = "\""+dateFormat.format(Date())+" *** processing $fname ... failure ***\""+sr.toString()
       } else {

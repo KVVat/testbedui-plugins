@@ -60,7 +60,7 @@ tasks.register<Copy>("copyApkToCore") {
     into(coreResourcesDir)
 
     // Optional: Rename for simpler access in tests (e.g., removes version suffix if needed)
-    rename { "directboot-debug.apk" }
+    rename { "directboot.apk" }
 
     doLast {
         println("✅ APK copied to: ${coreResourcesDir.absolutePath}")
