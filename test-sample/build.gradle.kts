@@ -50,3 +50,40 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
+tasks.register("generateTestList") {
+    dependsOn("compileKotlin")
+
+    // ★ 1. 設定フェーズで「入力」と「出力」を明確に宣言する
+    val srcDir = file("src/main/kotlin")
+    val listFile = layout.buildDirectory.file("generated/testbed/META-INF/testbed-tests.list")
+
+    inputs.dir(srcDir).withPropertyName("sourceDirectory")
+    outputs.file(listFile).withPropertyName("outputListFile")
+
+    doLast {
+        // ★ 2. 実行フェーズでは GradleのProject依存メソッド(fileTree等)を使わず、
+        // 純粋な Kotlin の File API (walk) だけで処理を完結させる
+        val out = listFile.get().asFile
+        out.parentFile.mkdirs()
+
+        out.printWriter().use { writer ->
+            // srcDir.walk() で再帰的にファイルを探索
+            srcDir.walk().filter { it.isFile && it.extension == "kt" }.forEach { file ->
+                val text = file.readText()
+
+                if (text.contains("@Test")) {
+                    val pkg = Regex("package\\s+([a-zA-Z0-9_.]+)").find(text)?.groupValues?.get(1) ?: ""
+                    val cls = Regex("class\\s+([a-zA-Z0-9_]+)").find(text)?.groupValues?.get(1) ?: ""
+                    if (cls.isNotEmpty()) {
+                        writer.println("$pkg.$cls")
+                    }
+                }
+            }
+        }
+    }
+}
+
+tasks.named<Jar>("jar") {
+    dependsOn("generateTestList")
+    from(layout.buildDirectory.dir("generated/testbed"))
+}
