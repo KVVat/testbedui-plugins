@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
     sharedPref.edit().putString(TAG,"Success").apply()
     Thread.sleep(500)
 
-    Log.d(TAG, "Booted");
+    Log.d("Info/"+TAG, "Booted");
 
   }
   fun storageContext():Context{

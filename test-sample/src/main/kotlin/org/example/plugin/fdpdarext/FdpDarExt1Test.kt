@@ -95,7 +95,7 @@ class FdpDarExt1Test {
               )
           }
           var result: AdamUtils.LogcatResult? =
-              AdamUtils.waitLogcatLine(50, "FCS_CKH_EXT_TEST", adb)
+              AdamUtils.waitLogcatLine(50, "Info/FCS_CKH_EXT_TEST", adb)
           //assertThat { result }.isNotNull()
           errs.checkThat(
               assert.msg("Check The application booted.(It prepares directboot.)"),
@@ -106,14 +106,15 @@ class FdpDarExt1Test {
           //(Require)Reboot Device
           //1. We expect the bootloader of the device is unlocked.
           //2. Users need to relaunch the device quickly
-          client.execute(request = RebootRequest(), serial = adb.deviceSerial)
-          logi("> ** Rebooting : Please Reboot Device **")
-          Thread.sleep(1000 * 10)
-          //Note:  the connection to the adb server will be dismissed during the rebooting
-          logi("> ** Maybe it requires manual operation : Please Reboot the target device as fast as possible **")
+          try {
+              client.execute(ShellCommandRequest("svc power reboot"), adb.deviceSerial)
+          } catch (e: Exception) {
+              logi("Reboot signal sent. (Expected ADB disconnection: ${e.message})")
+          }
+          Thread.sleep(1000*5)
           adb.waitBoot()
-          Thread.sleep(1000 * 10)
-          logi("> ** Reconnected")
+          //Thread.sleep(1000 * 10)
+          logi("** Reconnected **")
           result = AdamUtils.waitLogcatLine(500, "FCS_CKH_EXT_TEST", adb)
           if (result == null) {
               result = AdamUtils.LogcatResult("", "<null>")
