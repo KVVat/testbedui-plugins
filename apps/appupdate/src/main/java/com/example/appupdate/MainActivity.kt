@@ -2,24 +2,26 @@ package com.example.appupdate
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import com.example.appupdate.databinding.ActivityMainBinding
-import com.example.appupdate.BuildConfig
 
-//The application used by FDP_ACF_EXT.1 Test Case
-//It holds
 class MainActivity : AppCompatActivity() {
-  private lateinit var binding: ActivityMainBinding
+    private lateinit var binding: ActivityMainBinding
+    private val TAG = "AppUpdateTest"
 
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    binding = ActivityMainBinding.inflate(layoutInflater);
-    setContentView(binding.root)
-  }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-  override fun onStart() {
-    super.onStart()
-    val signature: String = BuildConfig.APPLICATION_ID + "\n" +
-      "Version:" + BuildConfig.VERSION_NAME + "/" + BuildConfig.VERSION_CODE + "\n" + BuildConfig.BUILD_TYPE
-    binding.mainText.text = signature;
-  }
+        val info = """
+            Package: ${BuildConfig.APPLICATION_ID}
+            Version: ${BuildConfig.VERSION_NAME}
+            Code: ${BuildConfig.VERSION_CODE}
+            Type: ${BuildConfig.BUILD_TYPE}
+        """.trimIndent()
+
+        binding.mainText.text = info
+        Log.i(TAG, "Application Started: \n$info")
+    }
 }

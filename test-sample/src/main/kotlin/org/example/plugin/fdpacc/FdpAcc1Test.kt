@@ -1,4 +1,4 @@
-package org.example.plugin
+package org.example.plugin.fdpacc
 
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import kotlinx.coroutines.delay
@@ -16,6 +16,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 
+//FDP_ACF_EXT.1.2?
 class FdpAcc1Test {
 
     @get:Rule
@@ -43,8 +44,14 @@ class FdpAcc1Test {
     fun teardown() {
         runBlocking {
             logi("Tearing down test... Uninstalling apps.")
-            try {AdamUtils.uninstallApk(client, serial, TEST_PACKAGE)} catch (e: Exception) {}
-            try {AdamUtils.uninstallApk(client, serial, ATTACKER_PACKAGE)} catch (e: Exception) {}
+            try {
+                AdamUtils.uninstallApk(client, serial, TEST_PACKAGE)
+            } catch (e: Exception) {
+            }
+            try {
+                AdamUtils.uninstallApk(client, serial, ATTACKER_PACKAGE)
+            } catch (e: Exception) {
+            }
         }
     }
 

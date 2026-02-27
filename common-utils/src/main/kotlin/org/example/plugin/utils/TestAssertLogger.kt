@@ -12,5 +12,5 @@ class TestAssertLogger(name: TestName){
     val line = name.methodName + "(" + DecimalFormat("000").format(inc) +"):"+ desc;
     println(line)
     return line
-  }
+}
 }
