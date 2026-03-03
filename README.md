@@ -37,7 +37,7 @@ The output APK will be located at:
 
 `./gradlew :tools:mutton-agent:bundleDebugAar`
 
-`./gradlew :mutton-agent:assembleAndroidTest`
+`./gradlew :tools:mutton-agent:assembleAndroidTest`
 
 ## Development Notes
 
