@@ -1,7 +1,13 @@
 package org.example.mutton
+import android.app.Instrumentation
 import android.net.LocalServerSocket
 import android.net.LocalSocket
 import android.os.Looper
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import org.example.mutton.uidumper.JsonUiDumper
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -14,6 +20,9 @@ import java.io.PrintWriter
 object Main {
 
     private const val SOCKET_NAME = "mutton_agent"
+
+    private lateinit var instrumentation: Instrumentation
+    private lateinit var device: UiDevice
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -29,6 +38,8 @@ object Main {
         try {
             val server = LocalServerSocket(SOCKET_NAME)
             println(">>> Listening on localabstract:$SOCKET_NAME")
+            instrumentation = InstrumentationRegistry.getInstrumentation()
+            device = UiDevice.getInstance(instrumentation)
 
             // 接続待ちループ
             while (true) {
@@ -98,9 +109,22 @@ object Main {
             "dump" -> {
                 // UI階層ダンプの実装予定地
                 // 実際にはここで AccessibilityInteractionClient 等を使ってダンプする
-                JSONObject()
-                    .put("type", "dump_result")
-                    .put("xml", "<dummy>Wait for Phase 2 implementation</dummy>")
+                device.waitForIdle()
+                val activeNode = instrumentation.uiAutomation.rootInActiveWindow
+                if (activeNode != null) {
+                    val rootNode = JsonUiDumper().dumpNodeRec(activeNode, 0)
+                    JSONObject()
+                        .put("type", "dump_result")
+                        .put("status", "ok")
+                        .put("output",Json.encodeToString(rootNode))
+
+                } else {
+                    // 画面取得失敗時
+                    //call.respond(io.ktor.http.HttpStatusCode.InternalServerError, "Failed to get root node")
+                    JSONObject()
+                        .put("type", "dump_result")
+                        .put("status", "ng")
+                }
             }
             "shell" -> {
                 val commandStr = json.getString("args") // 例: "ls -l /sdcard"

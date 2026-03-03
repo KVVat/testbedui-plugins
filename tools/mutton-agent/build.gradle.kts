@@ -4,7 +4,9 @@ import java.io.FileOutputStream
 
 plugins {
     id("com.android.library")
+    //id(libs.plugins.kotlin.android)
     id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -35,6 +37,7 @@ dependencies {
     implementation("androidx.test.uiautomator:uiautomator:2.3.0")
     implementation("androidx.test:monitor:1.7.2")
     implementation("org.json:json:20231013")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.1")
 
     // R8 (Kotlin 2.x 対応のため 9.0系推奨)
     r8Configuration("com.android.tools:r8:9.0.32")

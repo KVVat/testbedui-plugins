@@ -31,7 +31,6 @@ class CoroutineKeyCheckWorker(
   override  fun doWork(): Result {
     var r=false
     repeat(5){
-      //Log.d(TAG,"dowork")
       try {
         tryEncrypt()
         writePrefValue("BACKGROUND","OK")

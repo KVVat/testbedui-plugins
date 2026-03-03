@@ -33,6 +33,12 @@ To build the sample Android application for testing on a device:
 The output APK will be located at:
 `apps/target-test-app/build/outputs/apk/debug/target-test-app-debug.apk`
 
+### 3. Building the Agent
+
+`./gradlew :tools:mutton-agent:bundleDebugAar`
+
+`./gradlew :mutton-agent:assembleAndroidTest`
+
 ## Development Notes
 
 * **Dependency Management**: Plugins reference compiled classes from TestBed Core via local file paths. Ensure the core app has been compiled at least once.
