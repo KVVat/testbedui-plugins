@@ -49,14 +49,24 @@ val copyTestApk = tasks.register("copyTestApk", Copy::class) {
     group = "build"
     description = "Copies the AndroidTest APK to testbed-core resources"
 
-    dependsOn("assembleDebugAndroidTest")
+    dependsOn("assembleDebugAndroidTest","assembleAndroidTest")
 
-    val buildDir = layout.buildDirectory
-    val apkFile = buildDir.file("outputs/apk/androidTest/debug/mutton-agent-debug-androidTest.apk")
+    //val buildDir = layout.buildDirectory
+    //val apkFile = buildDir.file("outputs/apk/androidTest/debug/mutton-agent-debug-androidTest.apk")
 
-    val deployTargetDir = rootProject.projectDir.resolve("../testbed-core/composeApp/resources")
+    from(layout.buildDirectory.dir("outputs/apk/androidTest/debug/"))
+    include("mutton-agent-debug-androidTest.apk")
 
-    from(apkFile)
+    val deployTargetDir = file("${rootProject.projectDir}/../testbed-core/composeApp/resources")
+    if (!deployTargetDir.exists()) {
+        deployTargetDir.mkdirs()
+    }
     into(deployTargetDir)
     rename { "mutton-agent.apk" }
+    println("✅ APK copied to: ${deployTargetDir.absolutePath}")
 }
+
+tasks.named("assemble") {
+    finalizedBy("copyTestApk")
+}
+
