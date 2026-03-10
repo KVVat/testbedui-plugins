@@ -63,7 +63,7 @@ class FdpAcc1Test {
         delay(500)
         if (!TEST_APK.exists()) {
             loge("Test APK not found at: ${TEST_APK.absolutePath}")
-            return@runBlocking
+            Assert.fail("Test APK not found at: ${TEST_APK.absolutePath}")
         }
 
         // 1. Initial Cleanup & Install using common-utils
@@ -129,7 +129,7 @@ class FdpAcc1Test {
 
         if (!ATTACKER_APK.exists()) {
             loge("Attacker APK not found at: ${ATTACKER_APK.absolutePath}")
-            return@runBlocking
+            Assert.fail("Attacker APK not found at: ${ATTACKER_APK.absolutePath}")
         }
 
         // 8. Targetアプリで再度データを準備 (Attackerが盗めるかどうかの標的を作成)
