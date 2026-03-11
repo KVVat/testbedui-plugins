@@ -3,10 +3,7 @@ package org.example.plugin.fdpacc
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import org.example.plugin.utils.AdamUtils
-import org.example.plugin.utils.loge
-import org.example.plugin.utils.logi
-import org.example.plugin.utils.logp
+import org.example.plugin.utils.*
 import org.example.project.JUnitBridge
 import org.example.project.adb.rules.AdbDeviceRule
 import org.junit.After
@@ -17,7 +14,18 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 
-//FDP_ACF_EXT.1.2?
+/**
+ * Access Control for System Services - The TSF shall ensure that only the TSF and authorized
+ * users can access system services.
+ * 
+ * Note: Historically named FdpAcc1Test in this project.
+ * This test verifies the Android application sandbox by attempting to access
+ * private data from another application (Attacker app).
+ */
+@SFR(
+    title = "FDP_ACF_EXT.1.2",
+    description = "Verify the Android application sandbox. Ensure that access to private data of other applications is restricted."
+)
 class FdpAcc1Test {
 
     @get:Rule

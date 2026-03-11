@@ -1,58 +1,55 @@
-# テスト作成規約 (Test Conventions)
+# Test Creation Conventions
 
-このプロジェクトにおけるテスト作成の規約と、利用可能なツールについてまとめます。
+This document outlines the conventions and tools for creating tests in this project.
 
-## 1. ログ出力 (Logging)
+## 1. Logging
 
-テスト中のログ出力には、`org.example.plugin.utils` パッケージで定義されている以下の拡張関数を使用してください。
-`JUnitBridge.logging?.invoke(...)` を直接呼び出す必要はありません。
+Use the extension functions defined in the `org.example.plugin.utils` package for logging during tests.
 
-- `logd(message)`: デバッグ情報 (DEBUG レベル)
-- `logi(message)`: 一般的な情報 (INFO レベル)
-- `logp(message)`: テスト成功時の情報 (PASS レベル)
-- `logw(message)`: 警告 (WARN レベル)
-- `loge(message)`: エラー情報 (ERROR レベル)
+- `logd(message)`: Debug information (DEBUG level)
+- `logi(message)`: General information (INFO level)
+- `logp(message)`: Test passed information (PASS level)
+- `logw(message)`: Warning (WARN level)
+- `loge(message)`: Error information (ERROR level)
 
-### 使用例
+### Target App Logging Note
+When an exception occurs in a target app (`apps/` directory), ensure you explicitly call `Log.e(TAG, ...)` in addition to returning `Result.failure`. This allows the test plugin to identify the root cause via Logcat.
+
+## 2. @SFR Annotation (Required)
+
+To relay test purposes and requirements to `testbed-core`, every test class or method must be annotated with **`@SFR(title = "...", description = "...")`**.
+
 ```kotlin
-import org.example.plugin.utils.*
+import org.example.plugin.utils.SFR
 
-@Test
-fun myTest() {
-    logi("テストを開始します")
-    // ...
-    logp("期待通りの結果が得られました")
-}
+/**
+ * Verification of trusted communication channels.
+ */
+@SFR(
+    title = "FTP_ITC_EXT.1",
+    description = "Verify that cleartext HTTP communication is correctly blocked by the OS Network Security Policy."
+)
+class FtpItcExt1HttpTest { ... }
 ```
 
-## 2. テストの基本構成
+- **title**: Requirement ID or a short title for the test case.
+- **description**: A detailed explanation of what is being verified.
 
-- **JUnit 4**: `org.junit.Test` アノテーションを使用します。
-- **AdbDeviceRule**: デバイス操作が必要な場合は、`AdbDeviceRule` を `@get:Rule` として定義します。
+## 3. Handling OS Version Differences
+
+Newer OS versions (e.g., Android 15/16) may have slightly different system error messages. When asserting log outputs, prefer using `contains()` with multiple keywords (e.g., `CLEARTEXT` and `not permitted`) rather than exact string matching to ensure robustness across versions.
+
+## 4. Basic Test Structure
+
+- **JUnit 4**: Use `org.junit.Test` annotation.
+- **AdbDeviceRule**: Define as `@get:Rule` if device interaction is required.
+- **setUp/tearDown**: If using `runBlocking`, ensure the method returns `Unit` by wrapping the logic inside the block.
 
 ```kotlin
-class SampleTest {
-    @get:Rule
-    val adbDeviceRule = AdbDeviceRule()
-
-    @Test
-    fun testWithDevice() {
-        val serial = adbDeviceRule.deviceSerial
-        logi("Target device: $serial")
+@Before
+fun setUp() {
+    runBlocking {
+        // Async initialization logic
     }
 }
 ```
-
-## 3. テストの実行とデバッグ
-
-### ビルドと反映
-テストコードを修正した後は、以下の手順で反映させます。
-1. `./gradlew :test-sample:jar` (または対象モジュールの jar タスク)
-2. `junit_test_reload` ツールの実行
-
-### リアルタイムログの取得
-テスト実行中は `junit_test_receive` を定期的に呼び出すことで、進行中のログをリアルタイムに取得できます。
-
-## 4. 注意点
-- **長時間実行**: 長時間かかるテスト（2分以上など）を作成する場合は、進行状況がわかるように定期的に `logi` などで進捗を出力することを推奨します。
-- **例外処理**: テスト中に例外を投げると、テストは失敗として記録され、スタックトレースがログに含まれます。

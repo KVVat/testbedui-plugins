@@ -1,50 +1,53 @@
-# ツールの使い方 (Tool Usage)
+# Tool Usage Guide
 
-テストのビルド、ロード、実行、およびログ確認の手順を説明します。
+This guide explains how to build, load, execute, and monitor tests in this environment.
 
-## 1. テストのビルドとロード
+## 1. Building and Deploying Target Apps
 
-テストコードを修正した後は、JAR ファイルをビルドしてプラグインとして読み込ませる必要があります。
+APKs used in tests must be built within their respective modules in the `apps/` directory and placed in the resource directory of the core app (`testbed-core`).
 
-### ビルド
+### Manual Build and Copy
+```bash
+./gradlew :apps:openurl:assembleDebug
+./gradlew :apps:openurl:copyApkToCore
+```
+*Note: Modules with a `copyApkToCore` task will automatically copy the built APK to `testbed-core/composeApp/resources/` upon assembly.*
+
+## 2. Building and Loading Test Plugins
+
+After modifying test code, rebuild the plugin JAR and reload it into the running environment.
+
+### Build Plugin
 ```bash
 ./gradlew :test-sample:jar
 ```
-※ モジュール名は `test-sample` の他に `mdf-compliance-test` などがあります。
 
-### ロード (再読み込み)
-`junit_test_reload` ツールを呼び出します。これにより、ビルドされた JAR 内のテストクラスがスキャンされ、実行可能なリストが更新されます。
+### Reload (Refresh Test List)
+Call the `mcp_my-local-server_junit_test_reload` tool. This scans the built JAR for test classes and updates the list of executable tests.
 
-## 2. テストの実行
+## 3. Executing Tests
 
-### 実行可能なテストの確認
-`junit_test_list` ツールを呼び出すと、現在ロードされているテストのクラス名とメソッド名の一覧を取得できます。
+### Check Available Tests
+Call the `mcp_my-local-server_junit_test_list` tool to retrieve the available class and method names.
 
-### 実行
-`junit_test_execute` ツールに、実行したいクラス名とメソッド名を指定します。
+### Run a Test
+Call the `mcp_my-local-server_junit_test_execute` tool with the required parameters.
 ```json
 {
-  "class_name": "org.example.plugin.LongRunningTest",
-  "method_name": "longRunningLogTest"
+  "class_name": "org.example.plugin.ftpitc.FtpItcExt1HttpTest",
+  "method_name": "testCleartextBlocked"
 }
 ```
 
-## 3. リアルタイムログと結果の確認
+## 4. Monitoring Progress and Results
 
-### ログの取得
-`junit_test_receive` ツールを呼び出すことで、実行中のテストのログをリアルタイムに取得できます。
+### Receive Real-time Logs
+Periodically call the `mcp_my-local-server_junit_test_receive` tool to monitor progress.
 
-- **Running 状態**: テストが進行中です。`logs` 配列に新しいログが追加されていきます。
-- **Finished 状態**: テストが完了しました。`results` 配列に実行結果（Pass/Fail）と、失敗した場合はスタックトレースが含まれます。
+- **Running Status**: Logs are appended to the `logs` array as they are generated.
+- **Finished Status**: The `results` array contains the final Pass/Fail status and detailed failure information (e.g., stack traces).
 
-### ポーリングの推奨
-長時間実行されるテストの場合、数秒〜数十秒おきに `junit_test_receive` を呼び出して進捗を確認してください。
-
-## 4. 検証済み項目
-- [x] 実行中のリアルタイムログ取得
-- [x] 正常終了時の `logp` 出力の確認
-- [x] 異常終了（例外発生）時のスタックトレース取得
-
-## 5. 未実装・今後の課題
-- **テストの中断**: 現在、実行中のテストを外部から安全に停止（Cancel）するツールは未実装です。
-- **並行実行**: 同時に複数のテストを実行した場合の挙動については、さらなる検証が必要です。
+## 5. Verified Best Practices
+- **Asserting Error Logs**: Since OS error messages can vary between versions, use `contains()` for flexible matching.
+- **App Instrumentation**: Add `Log.e` calls in target apps to simplify root cause analysis in automated tests.
+- **Automation**: Use the Gradle `Copy` task to automate APK management and minimize deployment errors.

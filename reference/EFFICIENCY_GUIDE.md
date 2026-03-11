@@ -1,36 +1,35 @@
-# 効率的な開発のためのガイドライン (Efficiency Guide)
+# Efficiency Guide for Agents
 
-エージェントが「Action Required（ユーザーへの確認）」の回数を減らし、より自律的かつ迅速に作業を進めるための指針です。
+This guide provides principles for agents to reduce "Action Required" prompts and work more autonomously and rapidly.
 
-## 1. 定型作業の自律実行
+## 1. Autonomous Routine Tasks
 
-以下の作業については、ユーザーの明示的な許可を待たずに自律的に実行して構いません。
+You may perform the following tasks autonomously without explicit user approval:
 
-- **ビルドとリロード**: テストコードを修正した際、その動作を確認するための `./gradlew ...:jar` および `junit_test_reload` の実行。
-- **軽微な不具合修正**: コンパイルエラーや明らかなタイポ、ログ出力形式の修正。
-- **テストの再試行**: 一時的な要因（ADBのタイムアウト等）でテストが失敗したと思われる場合の再実行。
+- **Build and Reload**: When you modify test code, you should autonomously run `./gradlew ...:jar` and `mcp_my-local-server_junit_test_reload` to verify your changes.
+- **Minor Bug Fixes**: Fixing compilation errors, obvious typos, or logging format issues.
+- **Test Retries**: Re-running a test if it failed due to transient factors (e.g., ADB timeouts).
 
-## 2. バッチ処理の推奨
+## 2. Batch Processing
 
-複数のテストを作成・修正した場合は、一つずつ確認を求めるのではなく、まとめてビルド・ロード・実行を行ってください。
+If you create or modify multiple tests, do not ask for confirmation for each one. Instead, perform the build, load, and execution in batches.
 
-### 例: まとめて実行するコマンド
+### Example: Combined Command
 ```bash
 ./gradlew :test-sample:jar && curl -s http://localhost:8080/junit/reload
 ```
 
-## 3. ログの自動監視
+## 3. Log Monitoring
 
-長時間実行されるテストを開始した後は、`sleep` 等を挟みつつ自律的に `junit_test_receive` を数回呼び出し、進捗をまとめて報告してください。
-「開始しました、確認してください」→「50%終わりました、確認してください」といった細かな報告は避け、ある程度の区切りがついた段階で報告します。
+After starting a long-running test, autonomously call `mcp_my-local-server_junit_test_receive` multiple times with `sleep` intervals to monitor progress. Report back to the user only after a significant milestone or when the test completes.
 
-## 4. ユーザーへの提案型コミュニケーション
+## 4. Proactive Communication
 
-「〜してもよろしいですか？」と聞く代わりに、「規約に基づき〜を修正し、テストを実行して結果を確認します」と**事後報告または並行報告**する形をとることで、ターン数を削減します。
+Instead of asking "May I do X?", state "I will do X based on the conventions and report the results." Use retrospective or parallel reporting to reduce turnaround time.
 
-## 5. テスト結果の要約
+## 5. Summarizing Test Results
 
-`junit_test_receive` の生データをそのまま提示するのではなく、以下の形式で要約して伝えてください。
-- **結果**: Pass / Fail
-- **ログの要点**: どのステップで何が起きたか
-- **失敗時の原因分析**: スタックトレースから推測される修正案
+Do not simply present the raw output of `mcp_my-local-server_junit_test_receive`. Summarize it as follows:
+- **Result**: Pass / Fail
+- **Key Events**: What happened in which steps.
+- **Root Cause Analysis**: Propose fixes based on stack traces or Logcat dumps if the test failed.

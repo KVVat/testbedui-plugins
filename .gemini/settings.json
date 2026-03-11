@@ -4,5 +4,11 @@
       "url": "http://127.0.0.1:11452/mcp",
       "type": "sse"
     }
+  },
+  "general": {
+    "defaultApprovalMode": "auto_edit"
+  },
+  "security": {
+    "enablePermanentToolApproval": true
   }
 }

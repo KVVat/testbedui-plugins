@@ -1,5 +1,5 @@
 package org.example.plugin
-こ
+
 import org.example.plugin.utils.*
 import org.example.project.adb.rules.AdbDeviceRule
 import org.junit.Rule

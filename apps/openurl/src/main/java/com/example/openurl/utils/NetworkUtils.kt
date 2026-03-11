@@ -21,12 +21,14 @@ class NetworkUtils {
       val url = URL(url_)
       //System.setProperty("jdk.tls.client.protocols","TLSv1.3")
 
-      val connection: HttpsURLConnection = url.openConnection() as HttpsURLConnection
+      val connection: HttpURLConnection = url.openConnection() as HttpURLConnection
 
-      /*val sc = SSLContext.getInstance("TLSv1.3","AndroidOpenSSL")
-      sc.init(null, null, SecureRandom())
-      sc.createSSLEngine();
-      connection.setSSLSocketFactory(sc.getSocketFactory());*/
+      if (connection is HttpsURLConnection) {
+          /*val sc = SSLContext.getInstance("TLSv1.3","AndroidOpenSSL")
+          sc.init(null, null, SecureRandom())
+          sc.createSSLEngine();
+          connection.setSSLSocketFactory(sc.getSocketFactory());*/
+      }
       connection.setRequestMethod("GET");
       connection.connect();
       val responseCode = connection.getResponseCode();

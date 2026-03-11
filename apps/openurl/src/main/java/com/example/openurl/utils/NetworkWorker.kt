@@ -30,6 +30,7 @@ class NetworkWorker (context: Context,
         ret = NetworkUtils.testOkHttp3(url)
       }
     } catch (ex:Exception){
+      Log.e("worker@", "Network task failed: ${ex.message}", ex)
       when(ex){
         is SSLHandshakeException,is SSLKeyException, is SSLProtocolException->
           ret = 525 //SSL Handshake Failed (not standard)

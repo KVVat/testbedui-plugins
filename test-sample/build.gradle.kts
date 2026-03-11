@@ -26,6 +26,10 @@ dependencies {
     implementation("com.flipkart.zjsonpatch:zjsonpatch:0.4.14")
     implementation("org.apache.commons:commons-compress:1.23.0")
 
+    // Packet analysis
+    implementation("org.pcap4j:pcap4j-core:1.8.2")
+    implementation("org.pcap4j:pcap4j-packetfactory-static:1.8.2")
+    implementation("net.java.dev.jna:jna:5.14.0")
 }
 
 tasks.jar {

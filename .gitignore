@@ -37,4 +37,4 @@ repomix-patch.txt
 /.gradle/
 /build/
 /test-sample/build/
-/test-sample/build/classes/kotlin/main/
+/test-sample/build/classes/kotlin/main/bin/
