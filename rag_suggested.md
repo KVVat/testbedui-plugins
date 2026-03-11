@@ -147,3 +147,103 @@ Treat "EXT" as a regular
 * **Logcat判定:** アプリ側で暗号化・復号のラウンドトリップ処理を行い、平文が一致した旨のログ（例: `TestApp: EncryptionDecryptionSuccess`）が出力されれば **Pass**。
 
 これらのテストは、GUIオートメーション（AppiumやUIAutomator）が抱える「画面レイアウト変更によるテスト崩れ」や「環境依存の描画遅延によるタイムアウト」を完全に排除できるため、CI/CDパイプライン上で安定して実行できる強みがあります。
+
+
+MDF_PP Evaluation Helperとして、過去の議論と提供された知識ベース（特に`PP_MDF_V3.3.md`と、実装例である`st-google-android15.md`）に基づき、**「UI操作不要で、ADBとLogcatのみで合否判定（Pass/Fail）が可能な自動テスト手順」**を具体化してまとめます。
+
+GoogleのSecurity Target（ST）の記述を踏まえることで、Android 15におけるOS標準のセキュリティ機構（TSF）がどう機能するかが明確になり、より正確なLogcatの監視対象（例外やエラーコード）を特定できます。
+
+---
+
+### 1. アプリケーションサンドボックスとデータ隔離検証
+
+* **Requirement:** **FDP_ACF_EXT.1.2** (Access Control for System Services)
+* **Google ST (Android 15) Context:**
+  GoogleのSTでは、LinuxのDiscretionary Access Control (DAC) とSELinuxを用いて、各アプリケーションに一意のUID（User ID）を割り当て、他のアプリのプライベートデータ領域（`/data/data/<package_name>`）へのアクセスをOSレベルで遮断していると記述されています。
+* **具体的なテスト手順 (UI不要):**
+1. `adb install` でターゲットアプリ（`assets-target-app`）とアタッカーアプリ（`assets-attacker-app`）をインストールする。
+2. `adb shell am start-foreground-service`（またはブロードキャスト）でターゲットアプリをバックグラウンド起動し、自身の内部ストレージにテスト用ファイル（例: `secret.txt`）を書き込ませる。
+3. `adb shell am start-foreground-service` でアタッカーアプリを起動し、ターゲットアプリの絶対パス（`/data/data/org.example.assets.target/files/secret.txt`）の読み取り（`FileInputStream`）を試行させる。
+
+
+* **Logcatでの合否判定:**
+* **Pass:** アタッカーアプリ側で `java.io.FileNotFoundException: ... (Permission denied)` または `EACCES` の例外ログがLogcatに出力され、ファイルの内容が取得できないこと。
+
+
+
+### 2. 平文通信（HTTP）のブロック検証
+
+* **Requirement:** **FTP_ITC_EXT.1** (Trusted Channel Communication) / **FDP_UPC_EXT.1/APPS**
+* **Google ST (Android 15) Context:**
+  STでは、Androidの「Network Security Configuration」により、デフォルトで平文のトラフィック（Cleartext traffic）がブロックされ、BoringSSLを用いたTLS通信が強制されると記載されています。
+* **具体的なテスト手順 (UI不要):**
+1. ネットワーク通信を行うテストアプリを `adb install` する（マニフェストで `usesCleartextTraffic="true"` のような意図的なダウングレードをしていない標準状態のAPK）。
+2. `adb shell am broadcast -a com.example.action.TEST_HTTP --es url "http://example.com"` のように、インテントのExtrasでHTTP（非TLS）のURLを渡し、バックグラウンドで `HttpURLConnection` を実行させる。
+
+
+* **Logcatでの合否判定:**
+* **Pass:** OSのネットワークセキュリティポリシーによって通信が遮断され、Logcatに `java.net.UnknownServiceException: CLEARTEXT communication to example.com not permitted by network security policy` が出力されること。
+
+
+
+### 3. デジタル署名と不正な証明書の検証
+
+* **Requirement:** **FPT_TUD_EXT.5.1** (Application Verification)
+* **Google ST (Android 15) Context:**
+  TOE（Android OS）のPackageManagerサービスが、APKのインストール前にAPK Signature Scheme（v2/v3等）を用いて暗号学的に署名と証明書の有効性を検証すると定義されています。
+* **具体的なテスト手順 (UI不要):**
+1. 事前にホストPC側で3つのAPKを用意する。
+* APK_A: 未署名のAPK
+* APK_B: 有効期限切れの証明書、または改ざんされた署名を持つAPK
+* APK_C: 適切に署名された正当なAPK
+
+
+2. ADBコマンドで順にインストールを実行する。
+* `adb install APK_A.apk`
+* `adb install APK_B.apk`
+
+
+
+
+* **Logcat (またはADB標準出力) での合否判定:**
+* **Pass:** 実行時の標準エラー出力、およびLogcatのPackageManagerのログに `INSTALL_PARSE_FAILED_NO_CERTIFICATES` や `INSTALL_FAILED_INVALID_APK` などのエラーが出力され、インストールプロセスが失敗（Fail）すること。
+
+
+
+### 4. X.509 証明書パスの検証（不正なTLS証明書の遮断）
+
+* **Requirement:** **FIA_X509_EXT.1** (X.509 Validation of Certificates)
+* **Google ST (Android 15) Context:**
+  TSF（Conscrypt/BoringSSL）が通信確立時に証明書チェーン、有効期限、基本制約を検証し、無効な場合は接続を拒否するとされています。
+* **具体的なテスト手順 (UI不要):**
+1. HTTPS通信を行うテストアプリをインストールする。
+2. `adb shell am broadcast` 等を用いて、テストアプリに意図的に不正な証明書を持つエンドポイント（例: `https://expired.badssl.com/` や `https://self-signed.badssl.com/`）へリクエストを送信させる。
+
+
+* **Logcatでの合否判定:**
+* **Pass:** TLSハンドシェイクがOSの検証レイヤーで失敗し、Logcatに `javax.net.ssl.SSLHandshakeException` または `java.security.cert.CertPathValidatorException` が出力され、HTTPのレスポンスコード（200 OK等）が取得されないこと。
+
+
+
+### 5. ドメイン分離によるシステム領域の改ざん防止検証
+
+* **Requirement:** **FPT_AEX_EXT.4.1** (Domain Isolation)
+* **Google ST (Android 15) Context:**
+  STに基づき、Androidシステム領域（`/system`, `/vendor`等）は `dm-verity`（ブロックレベルの整合性保護）によって読み取り専用（Read-only）でマウントされており、特権を持たないアプリからの書き込みは厳密に隔離されます。
+* **具体的なテスト手順 (UI不要):**
+1. ファイル書き込みを試行するテストアプリをインストールする。
+2. ADB経由でインテントを送信し、アプリに `/system/usr/test.txt` などのシステムディレクトリへのファイル作成（`File.createNewFile()`）を試行させる。
+
+
+* **Logcatでの合否判定:**
+* **Pass:** Logcatに `java.io.IOException: Read-only file system` または `Permission denied` の例外ログが出力され、ファイル書き込み完了のログが出力されないこと。
+
+
+
+---
+
+### Conclusion (結論)
+
+これらのテスト手順は、UIAutomator等による画面操作の不安定さ（Flaky）を排除し、ADBによる「状態の注入（Input）」とLogcatによる「例外の監視（Output）」という純粋なプログラムの挙動のみでMDF PP V3.3の要件準拠（Satisfies）を証明可能です。
+
+GoogleのAndroid 15実装（ST）に裏付けられたアーキテクチャの振る舞いを直接確認するため、CI/CDパイプライン上で安定して実行できる優れた自動テストケースとなります。
