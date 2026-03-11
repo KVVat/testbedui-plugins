@@ -122,6 +122,7 @@ object AdamUtils {
         adb.adb.execute(ShellCommandRequest("logcat -c"), adb.deviceSerial)
     }
     suspend fun waitLogcatLine(waitTime: Int, tagWait: String, adb: AdbDeviceRule): LogcatResult? {
+        org.example.project.JUnitBridge.logging?.invoke("Waiting for logcat line: $tagWait", org.example.project.TestLogLevel.INFO)
         clearLogcat(adb)
         var result: LogcatResult? = null
         withTimeoutOrNull(waitTime * 100L) {
@@ -132,6 +133,7 @@ object AdamUtils {
             for (line in channel) {
                 if (line.contains(tagWait)) {
                     println("[AdamUtils] matched logcat line found: $line")
+                    org.example.project.JUnitBridge.logging?.invoke("Matched logcat line found: $tagWait", org.example.project.TestLogLevel.INFO)
                     result = LogcatResult(tagWait, line)
                     channel.cancel()
                     break
