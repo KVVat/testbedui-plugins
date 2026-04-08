@@ -26,7 +26,7 @@ import org.junit.rules.TestWatcher
 import java.io.File
 import java.nio.file.Paths
 
-@Ignore("Need to integration")
+@Ignore("Need to integration. Test is for MDFPP3.2")
 @SFR("FCS_CKH_EXT.1/High-Credentials", """
   FCS_CKH_EXT.1/Low
 
