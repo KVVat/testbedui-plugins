@@ -6,9 +6,13 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
+import java.io.File
+import java.security.KeyStore
 import java.security.SecureRandom
 import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
+import android.util.Log
 
 
 class NetworkUtils {
@@ -16,7 +20,7 @@ class NetworkUtils {
     /**
      *
      */
-    fun testHttpURLConnection(url_:String):Int {
+    fun testHttpURLConnection(url_:String, p12Path: String? = null, p12Pass: String? = null):Int {
 
       val url = URL(url_)
       //System.setProperty("jdk.tls.client.protocols","TLSv1.3")
@@ -24,12 +28,31 @@ class NetworkUtils {
       val connection: HttpURLConnection = url.openConnection() as HttpURLConnection
 
       if (connection is HttpsURLConnection) {
-          /*val sc = SSLContext.getInstance("TLSv1.3","AndroidOpenSSL")
-          sc.init(null, null, SecureRandom())
-          sc.createSSLEngine();
-          connection.setSSLSocketFactory(sc.getSocketFactory());*/
+          if (!p12Path.isNullOrBlank()) {
+              try {
+                  val keyStore = KeyStore.getInstance("PKCS12")
+                  val file = File(p12Path)
+                  if (file.exists()) {
+                      file.inputStream().use { ins ->
+                          keyStore.load(ins, p12Pass?.toCharArray())
+                      }
+                      val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
+                      kmf.init(keyStore, p12Pass?.toCharArray())
+                      val sc = SSLContext.getInstance("TLS")
+                      sc.init(kmf.keyManagers, null, null)
+                      connection.sslSocketFactory = sc.socketFactory
+                      Log.d("NetworkUtils", "Loaded P12 cert from $p12Path")
+                  } else {
+                      Log.e("NetworkUtils", "P12 file not found: $p12Path")
+                  }
+              } catch (e: Exception) {
+                  Log.e("NetworkUtils", "Failed to load P12 cert", e)
+                  throw e
+              }
+          }
       }
       connection.setRequestMethod("GET");
+      connection.setRequestProperty("Connection", "close");
       connection.connect();
       val responseCode = connection.getResponseCode();
       if (responseCode == HttpURLConnection.HTTP_OK) {

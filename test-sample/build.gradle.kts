@@ -27,10 +27,18 @@ dependencies {
     implementation("org.apache.commons:commons-compress:1.23.0")
 
     // Packet analysis
-    implementation("org.pcap4j:pcap4j-core:1.8.2")
-    implementation("org.pcap4j:pcap4j-packetfactory-static:1.8.2")
-    implementation("net.java.dev.jna:jna:5.14.0")
+    implementation("io.pkts:pkts-core:3.0.2")
 }
+
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-reflect:2.2.0")
+    }
+}
+
 
 tasks.jar {
     val pluginName = project.name

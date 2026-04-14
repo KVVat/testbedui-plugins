@@ -18,14 +18,25 @@ class NetworkWorker (context: Context,
   override  fun doWork(): Result {
     val url:String = inputData.getString("url")!!;
     val type:String = inputData.getString("type")!!;
+    val p12Path = inputData.getString("p12path")
+    val p12Pass = inputData.getString("p12pass")
 
     var ret: Int = 0;
     //setProgress(firstUpdate)
     setProgressAsync(Data.Builder().putString("progress","... Initialize $type").build())
+    val resumption = inputData.getBoolean("resumption", false)
+    if (resumption) {
+      System.setProperty("http.keepAlive", "false")
+    }
     var msg = "None"
     try {
       if (type.equals("http")) {
-        ret = NetworkUtils.testHttpURLConnection(url)
+        ret = NetworkUtils.testHttpURLConnection(url, p12Path, p12Pass)
+        if (resumption && ret == 200) {
+          setProgressAsync(Data.Builder().putString("progress","... Attempting Resumption").build())
+          // Second connection for resumption
+          ret = NetworkUtils.testHttpURLConnection(url, p12Path, p12Pass)
+        }
       } else if (type.equals("okhttp3")) {
         ret = NetworkUtils.testOkHttp3(url)
       }

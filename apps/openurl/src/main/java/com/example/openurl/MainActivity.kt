@@ -30,6 +30,9 @@ class MainActivity : AppCompatActivity() {
 
     url = intent.getStringExtra("openurl")
     val type_ = intent.getStringExtra("type")
+    val p12Path = intent.getStringExtra("p12path")
+    val p12Pass = intent.getStringExtra("p12pass")
+    val resumption = intent.getBooleanExtra("resumption", false)
     if(!type_.isNullOrBlank()){
       type = type_
     }
@@ -42,7 +45,13 @@ class MainActivity : AppCompatActivity() {
     */
     if(url !== null){
       binding.mainText.text = url
-      val data = Data.Builder().putString("url",url).putString("type",type).build()
+      val data = Data.Builder()
+        .putString("url",url)
+        .putString("type",type)
+        .putString("p12path", p12Path)
+        .putString("p12pass", p12Pass)
+        .putBoolean("resumption", resumption)
+        .build()
 
       workRequest = OneTimeWorkRequest.Builder(NetworkWorker::class.java).setInputData(data).build()
       WorkManager.getInstance(applicationContext)

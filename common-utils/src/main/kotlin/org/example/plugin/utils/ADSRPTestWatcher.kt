@@ -52,6 +52,10 @@ class ADSRPTestWatcher(adbDeviceRule: AdbDeviceRule):TestWatcher() {
   {
     val prop= Properties()
     val path = Paths.get(path_)
+    val parent = path.parent
+    if (parent != null && !Files.exists(parent)) {
+        Files.createDirectories(parent)
+    }
     var mValue:String = value
     if(path.exists()){
       FileInputStream(path.toFile()).use { stream->
@@ -112,7 +116,7 @@ class ADSRPTestWatcher(adbDeviceRule: AdbDeviceRule):TestWatcher() {
     this.deviceType=adbDeviceRule.productmodel.trim()
     this.deviceSerial=adbDeviceRule.deviceSerial.trim()
     this.osversion=adbDeviceRule.osversion.trim()
-    //this.system=adbDeviceRule.system.trim()
+    this.system = "" // Workaround for uninitialized property
     val title_ = sfr.title.trim()
     val desc_ = sfr.description.trim()
 
