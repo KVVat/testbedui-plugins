@@ -2,6 +2,7 @@ package org.example.plugin.ftpitc
 
 import org.example.plugin.utils.ADSRPTestWatcher
 import org.example.plugin.utils.AdamUtils
+import org.example.plugin.utils.Report
 import org.example.plugin.utils.SFR
 import org.example.plugin.utils.TestAssertLogger
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
@@ -12,6 +13,7 @@ import org.hamcrest.core.IsEqual
 import org.junit.After
 import org.junit.Assert
 import org.junit.Before
+import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ErrorCollector
@@ -29,17 +31,29 @@ import com.malinskiy.adam.AndroidDebugBridgeClient
 import io.pkts.Pcap
 import io.pkts.packet.TCPPacket
 import io.pkts.protocol.Protocol
+import org.example.plugin.utils.SFRCheckList
 
 /**
  * FCS_TLSC_EXT.1 TLS Client Protocol
  * Verify that the TSF implements TLS 1.2 or TLS 1.3 as a client.
  */
+@Report
 @SFR("FCS_TLSC_EXT.1", """
 The TSF shall implement [selection: TLS 1.2 (RFC 5246), TLS 1.3 (RFC 8446)] as a client
 that supports additional functionality for session renegotiation protection and
 abort attempts by a server to negotiate any TLS or SSL version prior to TLS 1.2.
 """)
 class FcsTlscExtTest {
+
+  companion object {
+    @BeforeClass
+    @JvmStatic
+    fun setupCheckList() {
+      SFRCheckList.register("FCS_TLSC_EXT.1.1", "Verify TLS 1.2 support")
+      SFRCheckList.register("FCS_TLSC_EXT.1.2", "Verify legacy TLS rejection")
+      SFRCheckList.register("FCS_TLSC_EXT.1.3", "Verify certificate validation")
+    }
+  }
 
   /*
    * Test Items from tls-2.1.md FCS_TLSC_EXT.1.1:
@@ -121,11 +135,13 @@ class FcsTlscExtTest {
     val hostName = "https://tls-v1-2.badssl.com:1012/"
     val resp = tlsCapturePacket("normal", hostName)
     val httpret = resp.first
-    println("[JUnit] HTTP response: $httpret")
+    System.out.println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
     
     val pcapPath = resp.second
     analyzePcap(pcapPath, expectAlert = false)
+    
+    SFRCheckList.pass("FCS_TLSC_EXT.1.1")
   }
 
   @Test
@@ -138,6 +154,8 @@ class FcsTlscExtTest {
     
     val pcapPath = resp.second
     analyzePcap(pcapPath, expectAlert = false)
+    
+    SFRCheckList.pass("FCS_TLSC_EXT.1.2")
   }
 
   @Test
@@ -150,6 +168,8 @@ class FcsTlscExtTest {
     
     val pcapPath = resp.second
     analyzePcap(pcapPath, expectAlert = false)
+    
+    SFRCheckList.pass("FCS_TLSC_EXT.1.2")
   }
 
   @Test
@@ -162,6 +182,8 @@ class FcsTlscExtTest {
     
     val pcapPath = resp.second
     analyzePcap(pcapPath, expectAlert = false)
+    
+    SFRCheckList.pass("FCS_TLSC_EXT.1.4")
   }
 
   @Test
@@ -174,6 +196,8 @@ class FcsTlscExtTest {
     
     val pcapPath = resp.second
     analyzePcap(pcapPath, expectAlert = false)
+    
+    SFRCheckList.pass("FCS_TLSC_EXT.1.3")
   }
 
   @Test
@@ -186,6 +210,8 @@ class FcsTlscExtTest {
     
     val pcapPath = resp.second
     analyzePcap(pcapPath, expectAlert = false)
+    
+    SFRCheckList.pass("FCS_TLSC_EXT.1.3")
   }
 
   @Test
@@ -198,6 +224,8 @@ class FcsTlscExtTest {
     
     val pcapPath = resp.second
     analyzePcap(pcapPath, expectAlert = true)
+    
+    SFRCheckList.pass("FCS_TLSC_EXT.1.3")
   }
 
   @Test
@@ -210,6 +238,8 @@ class FcsTlscExtTest {
     
     val pcapPath = resp.second
     analyzePcap(pcapPath, expectAlert = true)
+    
+    SFRCheckList.pass("FCS_TLSC_EXT.1.3")
   }
 
   @Test
@@ -269,6 +299,8 @@ class FcsTlscExtTest {
     
     val pcapPath = resp.second
     analyzePcap(pcapPath, expectAlert = false, expectResumption = true)
+    
+    SFRCheckList.pass("FCS_TLSC_EXT.1.6")
   }
 
   // NOTE: FCS_TLSC_EXT.3 (Downgrade Protection) requires a custom server that sends

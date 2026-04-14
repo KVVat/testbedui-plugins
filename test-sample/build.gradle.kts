@@ -12,7 +12,7 @@ repositories {
 dependencies {
     // 1. 本体のコンパイル済みクラスを参照 (../.. で testbedui 側へ抜ける)
     // 本体側で ./gradlew :composeApp:compileKotlinJvm が実行済みである必要があります
-    implementation(files("../../testbed-core/composeApp/build/classes/kotlin/jvm/main"))
+    compileOnly(files("../../testbed-core/composeApp/build/classes/kotlin/jvm/main"))
     implementation(project(":common-utils"))
     // 2. テスト実行に必要な最小限の依存関係
     implementation("junit:junit:4.13.2")

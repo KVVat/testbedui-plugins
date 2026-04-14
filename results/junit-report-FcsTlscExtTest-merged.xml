@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<?xml-stylesheet type="text/xsl" href="../reference/summary.xslt"?>
+<testsuite errors="0" failures="0" hostname="wkouki-mac.roam.internal" name="classes" tests="11" time="104.099" timestamp="2026-04-14T08:27:17">
+  <properties>
+    <property name="SFR.shortname" value="FcsTlscExtTest" />
+    <property name="SFR.name" value="FCS_TLSC_EXT.1" />
+    <property name="SFR.description" value="The TSF shall implement [selection: TLS 1.2 (RFC 5246), TLS 1.3 (RFC 8446)] as a client that supports additional functionality for session renegotiation protection and abort attempts by a server to negotiate any TLS or SSL version prior to TLS 1.2." />
+    <property name="device" value="Pixel 8" />
+    <property name="osversion" value="17" />
+    <property name="system" value="" />
+    <property name="signature" value="33171FDJH000F7" />
+    <property name="summary" value="FCS_TLSC_EXT.1.1: PASS (Verify TLS 1.2 support) | FCS_TLSC_EXT.1.2: PASS (Verify legacy TLS rejection) | FCS_TLSC_EXT.1.3: PASS (Verify certificate validation)" />
+  </properties>
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="testNormalHost" time="9.875" />
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="testTls11Reject" time="9.103" />
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="testInvalidHost" time="9.319" />
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="testRc4Reject" time="9.151" />
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="test3DesReject" time="9.038" />
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="testExpiredHost" time="9.19" />
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="testMutualAuthNoCert" time="9.62" />
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="testNullCipherReject" time="9.073" />
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="testSessionResumption" time="10.421" />
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="testTls10Reject" time="9.168" />
+  <testcase classname="org.example.plugin.ftpitc.FcsTlscExtTest" name="testMutualAuthWithCert" time="10.131" />
+  <system-out><![CDATA[
+==========================================
+[Test Start] : testNormalHost(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:27:18.091870
+[INFO] testNormalHost(001):HTTP response should start with 200
+[Test Succeeded] : testNormalHost(org.example.plugin.ftpitc.FcsTlscExtTest)
+==========================================
+[Test Start] : testTls11Reject(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:27:27.929275
+[INFO] testTls11Reject(001):HTTP response should not be 200 (rejected)
+[Test Succeeded] : testTls11Reject(org.example.plugin.ftpitc.FcsTlscExtTest)
+==========================================
+[Test Start] : testInvalidHost(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:27:37.020416
+[INFO] testInvalidHost(001):HTTP response should be 526 or error
+[Test Succeeded] : testInvalidHost(org.example.plugin.ftpitc.FcsTlscExtTest)
+==========================================
+[Test Start] : testRc4Reject(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:27:46.329990
+[INFO] testRc4Reject(001):HTTP response should not be 200 (rejected)
+[Test Succeeded] : testRc4Reject(org.example.plugin.ftpitc.FcsTlscExtTest)
+==========================================
+[Test Start] : test3DesReject(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:27:55.497317
+[INFO] test3DesReject(001):HTTP response should not be 200 (rejected)
+[Test Succeeded] : test3DesReject(org.example.plugin.ftpitc.FcsTlscExtTest)
+==========================================
+[Test Start] : testExpiredHost(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:28:04.528372
+[INFO] testExpiredHost(001):HTTP response should be 525 or error
+[Test Succeeded] : testExpiredHost(org.example.plugin.ftpitc.FcsTlscExtTest)
+==========================================
+[Test Start] : testMutualAuthNoCert(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:28:13.726348
+[INFO] testMutualAuthNoCert(001):HTTP response should start with 200
+[Test Succeeded] : testMutualAuthNoCert(org.example.plugin.ftpitc.FcsTlscExtTest)
+==========================================
+[Test Start] : testNullCipherReject(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:28:23.351820
+[INFO] testNullCipherReject(001):HTTP response should not be 200 (rejected)
+[Test Succeeded] : testNullCipherReject(org.example.plugin.ftpitc.FcsTlscExtTest)
+==========================================
+[Test Start] : testSessionResumption(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:28:32.420774
+[INFO] testSessionResumption(001):HTTP response should start with 200
+[Test Succeeded] : testSessionResumption(org.example.plugin.ftpitc.FcsTlscExtTest)
+==========================================
+[Test Start] : testTls10Reject(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:28:42.854987
+[INFO] testTls10Reject(001):HTTP response should not be 200 (rejected)
+[Test Succeeded] : testTls10Reject(org.example.plugin.ftpitc.FcsTlscExtTest)
+==========================================
+[Test Start] : testMutualAuthWithCert(org.example.plugin.ftpitc.FcsTlscExtTest) on 2026-04-14T17:28:52.015152
+[INFO] testMutualAuthWithCert(001):HTTP response should start with 200
+[Test Succeeded] : testMutualAuthWithCert(org.example.plugin.ftpitc.FcsTlscExtTest)
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
