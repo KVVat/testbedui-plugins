@@ -36,6 +36,55 @@ import org.example.plugin.utils.SFRCheckList
 /**
  * FCS_TLSC_EXT.1 TLS Client Protocol
  * Verify that the TSF implements TLS 1.2 or TLS 1.3 as a client.
+ *
+ * ### Requirement Mapping
+ *
+ * #### FCS_TLSC_EXT.1: Client Encryption and Rejection
+ * * **FCS_TLSC_EXT.1.1: TLS 1.2/1.3 Support**
+ *   * Verification: Access TLS 1.2 server and verify successful connection (HTTP 200).
+ *   * Test: `testNormalHost`
+ * * **FCS_TLSC_EXT.1.2: Legacy TLS Rejection**
+ *   * Verification: Access TLS 1.0/1.1 server and verify connection failure.
+ *   * Test: `testTls10Reject`, `testTls11Reject`
+ * * **FCS_TLSC_EXT.1.3: Weak Cipher Rejection**
+ *   * Verification: Access server with only RC4/3DES and verify connection failure.
+ *   * Test: `testRc4Reject`, `test3DesReject`
+ * * **FCS_TLSC_EXT.1.4: Null Cipher Rejection**
+ *   * Verification: Access server with only Null Cipher and verify connection failure.
+ *   * Test: `testNullCipherReject`
+ * * **FCS_TLSC_EXT.1.5: Certificate Validation**
+ *   * Verification: Access server with expired cert or wrong hostname and verify connection failure and Alert packet.
+ *   * Test: `testExpiredHost`, `testInvalidHost`
+ * * **FCS_TLSC_EXT.1.6: Session Resumption**
+ *   * Verification: Verify session resumption support (SessionTicket extension and multiple Client Hellos).
+ *   * Test: `testSessionResumption`
+ *
+ * #### FCS_TLSC_EXT.2: Mutual Authentication
+ * * **FCS_TLSC_EXT.2.1: Client Certificate Control**
+ *   * Verification: Send client certificate when requested, and do not send when not requested.
+ *   * Test: `testMutualAuthWithCert`, `testMutualAuthNoCert`
+ *
+ * #### FCS_TLSC_EXT.3: Downgrade Protection
+ * * **FCS_TLSC_EXT.3.1**: Downgrade Protection
+ *   * Verification: (Not implemented) Requires custom server to send downgrade indicator. Not supported by badssl.com.
+ *
+ * #### FCS_TLSC_EXT.4: Secure Renegotiation
+ * * **FCS_TLSC_EXT.4.1**: Renegotiation Protection
+ *   * Verification: Check for SCSV (0x00FF) or renegotiation_info extension (0xFF01) in Client Hello.
+ *   * Test: Verified in `analyzePcap` for successful connections.
+ *
+ * #### FCS_TLSC_EXT.5: Session Resumption
+ * * **FCS_TLSC_EXT.5.1**: Session Resumption Support
+ *   * Verification: Check for SessionTicket extension (0x0023) and multiple Client Hellos for resumption attempt.
+ *   * Test: `testSessionResumption`
+ *
+ * #### FCS_TLSC_EXT.6: TLS 1.3 Resumption Refinements
+ * * **FCS_TLSC_EXT.6.1**: PSK Key Exchange Modes
+ *   * Verification: Check for `psk_key_exchange_modes` extension (0x002D) in Client Hello.
+ *   * Test: Verified in `analyzePcap`.
+ * * **FCS_TLSC_EXT.6.2**: No Early Data
+ *   * Verification: Verify `early_data` extension (0x002A) is NOT present in Client Hello.
+ *   * Test: Verified in `analyzePcap`.
  */
 @Report
 @SFR("FCS_TLSC_EXT.1", """
