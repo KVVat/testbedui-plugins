@@ -26,15 +26,15 @@ class ADSRPTestWatcher(adbDeviceRule: AdbDeviceRule):TestWatcher() {
 
 
   override fun starting(desc: Description?) {
-    println(MessageFormat.format("==========================================\n[Test Start] : {0} on {1}", desc, LocalDateTime.now()))
+    log(MessageFormat.format("==========================================\n[Test Start] : {0} on {1}", desc, LocalDateTime.now()))
   }
-
+ 
   override fun succeeded(desc: Description?) {
-    println(MessageFormat.format("[Test Succeeded] : {0}", desc))
+    log(MessageFormat.format("[Test Succeeded] : {0}", desc))
   }
-
+ 
   override fun failed(e: Throwable, desc: Description?) {
-    System.err.println(
+    loge(
       MessageFormat.format(
         "[Test Failed] : {0} \r\n*** Exception : {1}.", desc, e.message
       )
@@ -52,6 +52,10 @@ class ADSRPTestWatcher(adbDeviceRule: AdbDeviceRule):TestWatcher() {
   {
     val prop= Properties()
     val path = Paths.get(path_)
+    val parent = path.parent
+    if (parent != null && !Files.exists(parent)) {
+        Files.createDirectories(parent)
+    }
     var mValue:String = value
     if(path.exists()){
       FileInputStream(path.toFile()).use { stream->
@@ -92,7 +96,13 @@ class ADSRPTestWatcher(adbDeviceRule: AdbDeviceRule):TestWatcher() {
     println(MessageFormat.format("[Test Finished] : {0}", desc))
 
     val myClassKClass = desc!!.testClass
-    //myClassKClass.
+    
+    val report = myClassKClass.getAnnotation(Report::class.java)
+    if (report == null) {
+        println("[JUnit] Skipping XML patch generation because @Report is not present.")
+        return
+    }
+
     var sfr = myClassKClass.getAnnotation(SFR::class.java)
     if(sfr == null){
       sfr = SFR("dummy","dummy")
@@ -112,10 +122,12 @@ class ADSRPTestWatcher(adbDeviceRule: AdbDeviceRule):TestWatcher() {
     this.deviceType=adbDeviceRule.productmodel.trim()
     this.deviceSerial=adbDeviceRule.deviceSerial.trim()
     this.osversion=adbDeviceRule.osversion.trim()
-    //this.system=adbDeviceRule.system.trim()
+    this.system = "" // Workaround for uninitialized property
     val title_ = sfr.title.trim()
     val desc_ = sfr.description.trim()
 
+    val logContent = LocalLog.getAsString()
+    val summary_ = SFRCheckList.getSummaryString()
     val diffText = """
 <diff>
    <add sel="/testsuite/properties">
@@ -125,6 +137,12 @@ class ADSRPTestWatcher(adbDeviceRule: AdbDeviceRule):TestWatcher() {
        <property name="osversion" value="${osversion}" />
        <property name="system" value="${system}" />
        <property name="signature" value="${deviceSerial}" />
+       <property name="summary" value="${summary_}" />
+   </add>
+   <add sel="/testsuite">
+       <system-out><![CDATA[
+${logContent}
+]]></system-out>
    </add>
 </diff>
     """
