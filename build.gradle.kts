@@ -82,3 +82,55 @@ tasks.register("applyPatch") {
         }
     }
 }
+
+tasks.register<Copy>("copyProjectResourcesToCore") {
+    group = "distribution"
+    description = "Copies resources from subprojects to TestBed Core resources."
+
+    val coreResourcesDir = file("${rootProject.projectDir}/../testbed-core/composeApp/resources")
+    into(coreResourcesDir)
+
+    subprojects.forEach { project ->
+        val resDir = project.file("resources")
+        if (resDir.exists() && resDir.isDirectory) {
+            from(resDir)
+        }
+    }
+}
+
+tasks.register<Zip>("zipPluginsAndResources") {
+    group = "distribution"
+    description = "Zips plugins and resources produced by this project."
+
+    // 最新のコードをassembleした結果を固めるため、サブプロジェクトのビルドおよびコピー生成タスクに依存させる
+    dependsOn(subprojects.flatMap { project ->
+        project.tasks.matching { task ->
+            task.name == "assemble" ||
+            task.name == "copyApkToCore" ||
+            task.name == "generateAndDeployTestApks"
+        }
+    })
+    dependsOn("copyProjectResourcesToCore")
+
+    val corePluginsDir = file("${rootProject.projectDir}/../testbed-core/composeApp/plugins")
+    val coreResourcesDir = file("${rootProject.projectDir}/../testbed-core/composeApp/resources")
+
+    // pluginsディレクトリを含める
+    from(corePluginsDir) {
+        into("plugins")
+    }
+
+    // resourcesディレクトリを含める。ただし、このプロジェクトの成果物ではない mutton-agent.apk は除外する
+    from(coreResourcesDir) {
+        into("resources")
+        exclude("mutton-agent.apk")
+    }
+
+    archiveFileName.set("plugins-and-resources.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+
+    doLast {
+        println("✅ Zip file created at: ${archiveFile.get().asFile.absolutePath}")
+    }
+}
+

@@ -23,6 +23,7 @@ import java.io.File
 @SFR(
     title = "FTP_ITC_EXT.1",
     description = "Verify that cleartext HTTP communication is correctly blocked by the OS Network Security Policy."
+    ,"network"
 )
 class FtpItcExt1HttpTest {
 

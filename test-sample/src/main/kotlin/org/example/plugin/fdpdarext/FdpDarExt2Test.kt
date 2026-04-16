@@ -22,6 +22,10 @@ import org.junit.rules.ErrorCollector
 import org.junit.rules.TestName
 import org.junit.rules.TestWatcher
 
+@SFR("FDP_DAR_EXT 2.2,2.3", """
+FDP_DAR_EXT.2.2: Asymmetric Key Encryption While Locked
+FDP_DAR_EXT.2.3: Key Release via Device Credential (PIN)
+""",category="encryption")
 class FdpDarExt2Test {
 
     private val TARGET_PACKAGE = "com.example.encryption"

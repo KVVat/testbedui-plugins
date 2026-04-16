@@ -38,7 +38,7 @@ import java.nio.file.Paths
     Direct Boot aware applications.
     
     (FCS_CKH_EXT.1/Low in MDFPP 3.2)
-  """)
+  """,category="encryption")
 class FdpDarExt1Test {
 
   private val TEST_PACKAGE = "com.example.directboot"

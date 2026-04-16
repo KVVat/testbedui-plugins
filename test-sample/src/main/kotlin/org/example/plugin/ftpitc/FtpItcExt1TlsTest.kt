@@ -51,7 +51,7 @@ notify the TSF and [selection: not establish the connection,
 request application authorization to establish the connection, no other action] 
 if the peer certificate is deemed invalid; 
  and support one of the following ciphersuites: ...
-  """)
+  ""","network")
 class FtpItcExt1TlsTest {
 
   //private val TEST_PACKAGE = "com.example.networkcheck"

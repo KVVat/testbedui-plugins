@@ -35,7 +35,7 @@ The TSF shall provide a communication channel between itself and another trusted
 IT product that is logically distinct from other communication channels and provides 
 assured identification of its end points and protection of the channel data from 
 modification or disclosure.
-""")
+""","network")
 class FcsTlsExt1Test {
 
   private val TEST_MODULE = "networkcheck-debug.apk"

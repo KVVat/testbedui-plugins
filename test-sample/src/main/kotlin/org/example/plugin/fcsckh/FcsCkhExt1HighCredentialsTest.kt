@@ -38,7 +38,7 @@ import java.nio.file.Paths
   generated, with which key lengths and according to which standards] ensuring that the key hierarchy
   uses the DUK directly or indirectly in the derivation of the data encryption key(s) for Low user 
   data assets. 
-  """)
+  """,category="encryption")
 class FcsCkhExt1HighCredentialsTest {
 
   private val TEST_PACKAGE = "com.example.encryption"

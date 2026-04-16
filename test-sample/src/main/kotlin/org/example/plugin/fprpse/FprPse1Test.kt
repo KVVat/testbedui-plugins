@@ -42,7 +42,7 @@ import org.junit.Ignore
  Pseudonymity requires that a set of users and/or subjects are
  unable to determine the identity of a user bound to a subject or operation, but
  that this user is still responsible for its actions.
-  """)
+  ""","platform")
 class FprPse1Test {
 
   @get:Rule

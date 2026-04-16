@@ -87,11 +87,11 @@ import org.example.plugin.utils.SFRCheckList
  *   * Test: Verified in `analyzePcap`.
  */
 @Report
-@SFR("FCS_TLSC_EXT.1", """
+@SFR("FCS_TLSC_EXT", """
 The TSF shall implement [selection: TLS 1.2 (RFC 5246), TLS 1.3 (RFC 8446)] as a client
 that supports additional functionality for session renegotiation protection and
 abort attempts by a server to negotiate any TLS or SSL version prior to TLS 1.2.
-""")
+""",category="network")
 class FcsTlscExtTest {
 
   companion object {
