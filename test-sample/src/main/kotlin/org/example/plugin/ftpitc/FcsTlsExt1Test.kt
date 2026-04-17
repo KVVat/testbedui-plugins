@@ -17,6 +17,7 @@ import org.junit.Test
 import org.junit.rules.ErrorCollector
 import org.junit.rules.TestName
 import org.junit.rules.TestWatcher
+import org.example.project.JUnitBridge
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -108,7 +109,7 @@ class FcsTlsExt1Test {
 
     runBlocking {
       // Install helper app
-      val browserApk = File("/Users/wkouki/AndroidStudioProjects/testbedui-plugins/apps/openurl/build/outputs/apk/debug/openurl-debug.apk")
+      val browserApk = File(JUnitBridge.resourceDir, "openurl-debug.apk")
       val ret = AdamUtils.installApk(client, serial, browserApk, true)
       Assert.assertTrue("Failed to install openurl app: ${ret}", ret.startsWith("Success"))
 
@@ -239,7 +240,7 @@ class FcsTlsExt1Test {
     Assert.assertTrue("No required ciphers found in Client Hello", matches.isNotEmpty())
   }
 
-  val OUT_PATH  = "../results/capture/"
+  val OUT_PATH = File(JUnitBridge.resultsDir, "capture").absolutePath + "/"
   private fun copyPcapToOutPath(pcap:Path,testlabel:String):Path {
     val outdir = File(Paths.get(OUT_PATH).toUri())
     if(!outdir.exists()){

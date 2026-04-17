@@ -27,6 +27,7 @@ import org.junit.rules.ErrorCollector
 import org.junit.rules.TestName
 import org.junit.rules.TestWatcher
 import java.io.BufferedInputStream
+import org.example.project.JUnitBridge
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
@@ -79,8 +80,8 @@ class KernelAcvpTest {
     }
   }
 
-  val RES_PATH  = "src/test/resources"
-  val OUT_PATH  = "../results/kernelacvp/"
+  val RES_PATH = JUnitBridge.resourceDir
+  val OUT_PATH = File(JUnitBridge.resultsDir, "kernelacvp").absolutePath + "/"
   @OptIn(ExperimentalCoroutinesApi::class)
   fun pushFileToTmp(objFile: File, permission:String="", destdir:String="/data/local/tmp/") {
     runBlocking {

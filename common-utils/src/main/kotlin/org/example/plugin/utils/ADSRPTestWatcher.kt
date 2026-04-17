@@ -9,6 +9,7 @@ import java.io.FileOutputStream
 import java.io.FileWriter
 import java.io.IOException
 import java.nio.file.Files
+import org.example.project.JUnitBridge
 import java.nio.file.Paths
 import java.text.MessageFormat
 import java.time.LocalDateTime
@@ -40,12 +41,6 @@ class ADSRPTestWatcher(adbDeviceRule: AdbDeviceRule):TestWatcher() {
       )
     )
   }
-
-  //private fun getFileFromPath(obj: Any, fileName: String): File? {
-    //val classLoader = obj.javaClass.classLoader
-    //val resource = classLoader.getResource(fileName)
-    //return File(fileName)
-  //}
 
 
   fun propertiesAddStringToArray(path_:String, key:String, value:String)
@@ -97,26 +92,38 @@ class ADSRPTestWatcher(adbDeviceRule: AdbDeviceRule):TestWatcher() {
 
     val myClassKClass = desc!!.testClass
     
-    val report = myClassKClass.getAnnotation(Report::class.java)
-    if (report == null) {
-        println("[JUnit] Skipping XML patch generation because @Report is not present.")
-        return
-    }
-
     var sfr = myClassKClass.getAnnotation(SFR::class.java)
     if(sfr == null){
       sfr = SFR("dummy","dummy")
     }
     println(sfr.title)
     //save_signature_to_tmp_file
-    val pout = Paths.get("../xml-patches/PATCH-${myClassKClass.name}.xml")
+    val xmlPatchesDir = File(JUnitBridge.resultsDir, "xml-patches")
+    if (!xmlPatchesDir.exists()) {
+        xmlPatchesDir.mkdirs()
+    }
+    
+    // Read timestamp from lock file if available
+    val lockFile = File(JUnitBridge.resultsDir, "${myClassKClass.simpleName}.lock")
+    val timestamp = if (lockFile.exists()) {
+        lockFile.readText().trim()
+    } else {
+        java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+    }
+
+    val pout = File(xmlPatchesDir, "PATCH-junit-report-${myClassKClass.simpleName}-${timestamp}.xml").toPath()
+
+    /*
+  val timestamp =
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+        */
 
     if(pout.exists()){
       Files.delete(pout)
     }
     val fout= File(pout.toUri())
 
-    propertiesAddStringToArray("../xml-patches/patch.prop",
+    propertiesAddStringToArray(File(xmlPatchesDir, "patch.prop").absolutePath,
       "classname",myClassKClass.name)
 
     this.deviceType=adbDeviceRule.productmodel.trim()
@@ -139,11 +146,9 @@ class ADSRPTestWatcher(adbDeviceRule: AdbDeviceRule):TestWatcher() {
        <property name="signature" value="${deviceSerial}" />
        <property name="summary" value="${summary_}" />
    </add>
-   <add sel="/testsuite">
-       <system-out><![CDATA[
+   <update sel="/testsuite/system-out"><![CDATA[
 ${logContent}
-]]></system-out>
-   </add>
+]]></update>
 </diff>
     """
 
@@ -156,6 +161,36 @@ ${logContent}
         println("Xml Patch:$e")
       }
     }
-    //
+
+    // Merge into target JUnit report
+    val reportFile = File(JUnitBridge.resultsDir, "junit-report-${myClassKClass.simpleName}-${timestamp}.xml")
+    if (reportFile.exists()) {
+        try {
+            var content = reportFile.readText()
+            
+            // 1. Insert properties
+            val propsToAdd = """
+    <property name="SFR.name" value="${title_}" />
+    <property name="SFR.description" value="${desc_}" />
+    <property name="device" value="${deviceType}" />
+    <property name="osversion" value="${osversion}" />
+    <property name="system" value="${system}" />
+    <property name="signature" value="${deviceSerial}" />
+    <property name="summary" value="${summary_}" />
+            """.trimIndent()
+            
+            content = content.replace("</properties>", "${propsToAdd}\n  </properties>")
+            
+            // 2. Insert system-out
+            content = content.replace("<system-out><![CDATA[]]></system-out>", "<system-out><![CDATA[\n${logContent}\n]]></system-out>")
+            
+            reportFile.writeText(content)
+            println("JUnit Report:Merged")
+        } catch (e: Exception) {
+            println("JUnit Report Merge Error: ${e.message}")
+        }
+    } else {
+        println("JUnit Report:Not found for merging: ${reportFile.absolutePath}")
+    }
   }
 }

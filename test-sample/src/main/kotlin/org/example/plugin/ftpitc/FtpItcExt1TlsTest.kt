@@ -22,6 +22,7 @@ import org.junit.Test
 import org.junit.rules.ErrorCollector
 import org.junit.rules.TestName
 import org.junit.rules.TestWatcher
+import org.example.project.JUnitBridge
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -393,7 +394,7 @@ class FtpItcExt1TlsTest {
         true, IsEqual(false))
     }
   }
-  val OUT_PATH  = "../results/capture/"
+  val OUT_PATH = File(JUnitBridge.resultsDir, "capture").absolutePath + "/"
   fun copyPcapToOutPath(pcap:Path,testlabel:String):Path
   {
     val outdir = File(Paths.get(OUT_PATH).toUri())
@@ -446,11 +447,11 @@ class FtpItcExt1TlsTest {
       val serial = adb.deviceSerial
       //Install prerequisite modules
       val pcap_apk=
-        File(Paths.get("src", "test", "resources", "pcapdroid-debug.apk").toUri())
+        File(JUnitBridge.resourceDir, "pcapdroid-debug.apk")
       var ret = AdamUtils.installApk(client, serial, pcap_apk, true)
       Assert.assertTrue(ret.startsWith("Success"))
       val browser_apk=
-        File(Paths.get("src", "test", "resources", "openurl-debug.apk").toUri())
+        File(JUnitBridge.resourceDir, "openurl-debug.apk")
       ret = AdamUtils.installApk(client, serial, browser_apk, false)
       Assert.assertTrue(ret.startsWith("Success"))
 

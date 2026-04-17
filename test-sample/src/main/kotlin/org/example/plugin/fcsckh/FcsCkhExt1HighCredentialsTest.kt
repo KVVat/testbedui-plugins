@@ -23,6 +23,7 @@ import org.junit.Test
 import org.junit.rules.ErrorCollector
 import org.junit.rules.TestName
 import org.junit.rules.TestWatcher
+import org.example.project.JUnitBridge
 import java.io.File
 import java.nio.file.Paths
 
@@ -111,7 +112,7 @@ class FcsCkhExt1HighCredentialsTest {
       //This type of test should enroll passcode each time when running the test case
       //
       val file_apk =
-        File(Paths.get("src", "test", "resources", TEST_MODULE).toUri())
+        File(JUnitBridge.resourceDir, TEST_MODULE)
       val ret = AdamUtils.installApk(client, adb.deviceSerial, file_apk)
       assertTrue(ret.startsWith("Success"))
 
@@ -145,7 +146,7 @@ class FcsCkhExt1HighCredentialsTest {
     runBlocking {
       //install file
       val file_apk =
-        File(Paths.get("src", "test", "resources", TEST_MODULE).toUri())
+        File(JUnitBridge.resourceDir, TEST_MODULE)
 
       val ret = AdamUtils.installApk(client, adb.deviceSerial, file_apk)
       assertTrue(ret.startsWith("Success"))

@@ -19,6 +19,7 @@ import org.junit.Test
 import org.junit.rules.ErrorCollector
 import org.junit.rules.TestName
 import org.junit.rules.TestWatcher
+import org.example.project.JUnitBridge
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -86,7 +87,6 @@ import org.example.plugin.utils.SFRCheckList
  *   * Verification: Verify `early_data` extension (0x002A) is NOT present in Client Hello.
  *   * Test: Verified in `analyzePcap`.
  */
-@Report
 @SFR("FCS_TLSC_EXT", """
 The TSF shall implement [selection: TLS 1.2 (RFC 5246), TLS 1.3 (RFC 8446)] as a client
 that supports additional functionality for session renegotiation protection and
@@ -95,6 +95,8 @@ abort attempts by a server to negotiate any TLS or SSL version prior to TLS 1.2.
 class FcsTlscExtTest {
 
   companion object {
+    var appInstalled = false
+    
     @BeforeClass
     @JvmStatic
     fun setupCheckList() {
@@ -318,20 +320,23 @@ class FcsTlscExtTest {
     val p12Pass = "badssl.com"
     
     // Push cert from resources to device
-    val file1 = File("apps/openurl/resource/badssl.com-client.p12")
-    val file2 = File("../apps/openurl/resource/badssl.com-client.p12")
-    val file3 = File("../testbedui-plugins/apps/openurl/resource/badssl.com-client.p12")
-    val file4 = File("../../testbedui-plugins/apps/openurl/resource/badssl.com-client.p12")
-    val certFile = if (file1.exists()) file1 else if (file2.exists()) file2 else if (file3.exists()) file3 else file4
-    Assert.assertTrue("Certificate file not found in resources. Checked:\n${file1.absolutePath}\n${file2.absolutePath}\n${file3.absolutePath}\n${file4.absolutePath}", certFile.exists())
+    val certFile = File(JUnitBridge.resourceDir, "badssl.com-client.p12")
+    Assert.assertTrue("Certificate file not found in resources: ${certFile.absolutePath}", certFile.exists())
 
     val serial = adb.deviceSerial
-    val process = ProcessBuilder("adb", "-s", serial, "push", certFile.absolutePath, "/sdcard/").start()
-    val exitCode = process.waitFor()
-    Assert.assertEquals("Failed to push certificate via adb", 0, exitCode)
 
     // Copy to app private directory
     runBlocking {
+      // Push file using Adam
+      val channel = client.execute(
+        com.malinskiy.adam.request.sync.v1.PushFileRequest(certFile, "/sdcard/${certFile.name}"),
+        this,
+        serial = serial
+      )
+      for (progress in channel) {
+          // wait for completion
+      }
+
       client.execute(com.malinskiy.adam.request.shell.v1.ShellCommandRequest("su 0 mkdir -p /data/data/com.example.openurl/files/"), serial)
       client.execute(com.malinskiy.adam.request.shell.v1.ShellCommandRequest("su 0 cp /sdcard/badssl.com-client.p12 /data/data/com.example.openurl/files/"), serial)
       client.execute(com.malinskiy.adam.request.shell.v1.ShellCommandRequest("su 0 chmod 666 /data/data/com.example.openurl/files/badssl.com-client.p12"), serial)
@@ -374,11 +379,32 @@ class FcsTlscExtTest {
     val foundExtensions = mutableSetOf<Int>()
     var tlsVersion: Int? = null
 
+    var targetClientPort: Int? = null
+    var targetServerPort: Int? = null
+
     pcap.loop { packet ->
       if (packet.hasProtocol(Protocol.TCP)) {
         val tcp = packet.getPacket(Protocol.TCP) as TCPPacket
         val payload = tcp.payload
         if (payload != null) {
+          val srcPort = tcp.getSourcePort()
+          val dstPort = tcp.getDestinationPort()
+          
+          if (targetServerPort != null) {
+              if (expectResumption) {
+                  // For resumption, allow multiple connections to the same server port
+                  if (!(srcPort == targetServerPort || dstPort == targetServerPort)) {
+                      return@loop true
+                  }
+              } else if (targetClientPort != null) {
+                  // Strict session filter for other tests
+                  if (!((srcPort == targetClientPort && dstPort == targetServerPort) ||
+                        (srcPort == targetServerPort && dstPort == targetClientPort))) {
+                      return@loop true
+                  }
+              }
+          }
+          
           val bytes = payload.array
           
           // Search for TLS Record
@@ -393,6 +419,12 @@ class FcsTlscExtTest {
               if (hsType == 0x01) { // Client Hello
                 foundClientHello = true
                 clientHelloCount++
+                
+                if (targetClientPort == null) {
+                    targetClientPort = srcPort
+                    targetServerPort = dstPort
+                    println("[JUnit] Identified session: Client Port $targetClientPort, Server Port $targetServerPort")
+                }
                 
                 // Read version in Client Hello (Handshake version)
                 tlsVersion = ((bytes[i+9].toInt() and 0xFF) shl 8) or (bytes[i+10].toInt() and 0xFF)
@@ -436,12 +468,11 @@ class FcsTlscExtTest {
               }
               
               if (hsType == 0x0b) { // Certificate
-                certMessageCount++
-                if (certMessageCount == 2) {
-                  foundClientCert = true
-                  println("[JUnit] Found Client Certificate packet (2nd cert message)!")
-                } else {
-                  println("[JUnit] Found Server Certificate packet (1st cert message)!")
+                if (srcPort == targetServerPort) {
+                    println("[JUnit] Found Server Certificate packet!")
+                } else if (srcPort == targetClientPort) {
+                    foundClientCert = true
+                    println("[JUnit] Found Client Certificate packet!")
                 }
               }
             }
@@ -531,13 +562,18 @@ class FcsTlscExtTest {
     val serial = adb.deviceSerial
 
     runBlocking {
-      val browserApk = File("/Users/wkouki/AndroidStudioProjects/testbedui-plugins/apps/openurl/build/outputs/apk/debug/openurl-debug.apk")
-      val ret = AdamUtils.installApk(client, serial, browserApk, true)
-      Assert.assertTrue("Failed to install openurl app: ${ret}", ret.startsWith("Success"))
+      val browserApk = File(JUnitBridge.resourceDir, "openurl-debug.apk")
+      if (!appInstalled) {
+          val ret = AdamUtils.installApk(client, serial, browserApk, true)
+          Assert.assertTrue("Failed to install openurl app: ${ret}", ret.startsWith("Success"))
+          appInstalled = true
+      }
 
       val tcpdumpJob = launch(Dispatchers.IO) {
           try {
               println("[JUnit] Starting tcpdump in coroutine...")
+              // Clean up old capture file to avoid analyzing stale data if the current run fails
+              client.execute(ShellCommandRequest("su 0 rm -f /data/local/tmp/traffic.pcap"), serial)
               client.execute(ShellCommandRequest("su 0 tcpdump -i any -U -w /data/local/tmp/traffic.pcap"), serial)
               println("[JUnit] tcpdump coroutine finished")
           } catch (e: Exception) {
@@ -549,6 +585,7 @@ class FcsTlscExtTest {
       client.execute(ShellCommandRequest("am force-stop com.example.openurl"), serial)
       Thread.sleep(500)
       
+      println("[JUnit] Launching app with URL: $testurl")
       var cmd = "am start -a android.intent.action.VIEW -n com.example.openurl/.MainActivity -e openurl $testurl"
       if (!p12Path.isNullOrBlank()) {
           cmd += " -e p12path $p12Path"
@@ -606,7 +643,7 @@ class FcsTlscExtTest {
     return Pair(httpResp, pcap)
   }
 
-  val OUT_PATH  = "../results/capture/"
+  val OUT_PATH = File(JUnitBridge.resultsDir, "capture").absolutePath + "/"
   private fun copyPcapToOutPath(pcap:Path,testlabel:String):Path {
     val outdir = File(Paths.get(OUT_PATH).toUri())
     if(!outdir.exists()){

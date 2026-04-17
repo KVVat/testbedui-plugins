@@ -21,6 +21,7 @@ import org.w3c.dom.Document
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 import org.xml.sax.InputSource
+import org.example.project.JUnitBridge
 import java.io.File
 import java.io.StringReader
 import java.nio.file.Paths
@@ -87,7 +88,7 @@ class FprPse1Test {
     runBlocking {
 
       val file_apk =
-        File(Paths.get("src", "test", "resources", TEST_MODULE).toUri())
+        File(JUnitBridge.resourceDir, TEST_MODULE)
 
       println("> The test verifies that the apis which generate unique ids return expected values.")
       AdamUtils.installApk(client, adb.deviceSerial, file_apk, true)
