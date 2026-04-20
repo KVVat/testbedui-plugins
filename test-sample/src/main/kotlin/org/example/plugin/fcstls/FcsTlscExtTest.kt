@@ -1,4 +1,4 @@
-package org.example.plugin.ftpitc
+package org.example.plugin.fcstls
 
 import org.example.plugin.utils.ADSRPTestWatcher
 import org.example.plugin.utils.AdamUtils

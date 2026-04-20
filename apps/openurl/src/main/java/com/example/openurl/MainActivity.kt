@@ -29,6 +29,10 @@ class MainActivity : AppCompatActivity() {
     setContentView(binding.root)
 
     url = intent.getStringExtra("openurl")
+    if (url.isNullOrBlank()) {
+        url = intent.dataString
+        Log.d(TAG, "URL from dataString: $url")
+    }
     val type_ = intent.getStringExtra("type")
     val p12Path = intent.getStringExtra("p12path")
     val p12Pass = intent.getStringExtra("p12pass")
@@ -81,6 +85,7 @@ class MainActivity : AppCompatActivity() {
       workManager.enqueue(workRequest)
     } else {
       binding.resultText.text = "... Url is not specified"
+      Log.d(TAG + "return", "Url is not specified")
     }
   }
 

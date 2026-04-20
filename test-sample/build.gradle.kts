@@ -28,6 +28,10 @@ dependencies {
 
     // Packet analysis
     implementation("io.pkts:pkts-core:3.0.2")
+    
+    // Netty and Bouncy Castle for custom TLS server
+    implementation("io.netty:netty-all:4.1.107.Final")
+    implementation("org.bouncycastle:bctls-jdk18on:1.77")
 }
 
 configurations.all {
@@ -46,7 +50,11 @@ tasks.jar {
 
     // common-utils などの依存モジュールを JAR に含める設定
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }) {
+        exclude("META-INF/*.SF")
+        exclude("META-INF/*.DSA")
+        exclude("META-INF/*.RSA")
+    }
     // 3. 本体の plugins/配下の個別ディレクトリへ出力
     destinationDirectory.set(file("${rootProject.projectDir}/../testbed-core/composeApp/plugins/$pluginName"))
 }
