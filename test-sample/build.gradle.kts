@@ -29,9 +29,7 @@ dependencies {
     // Packet analysis
     implementation("io.pkts:pkts-core:3.0.2")
     
-    // Netty and Bouncy Castle for custom TLS server
-    implementation("io.netty:netty-all:4.1.107.Final")
-    implementation("org.bouncycastle:bctls-jdk18on:1.77")
+    // Netty and Bouncy Castle removed as we use raw sockets now
 }
 
 configurations.all {

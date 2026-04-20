@@ -20,18 +20,17 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import org.example.project.adb.rules.AdbDeviceRule
 import com.malinskiy.adam.AndroidDebugBridgeClient
-import org.example.plugin.fcstls.mock.Tls12InsecureMockServer
+import org.example.plugin.fcstls.mock.TlsLegacyRejectMockServer
 import org.example.plugin.utils.TlsTestUtils
 import org.example.plugin.utils.logi
 import org.example.plugin.utils.loge
 
 /**
- * FCS_TLSC_EXT.4: Secure Renegotiation
- * Verify that the TOE actively rejects insecure renegotiation attempts or connections
- * to servers that do not support secure renegotiation.
+ * FCS_TLSC_EXT.1.1: Active Rejection of Legacy Protocols
+ * Verify that the TOE actively rejects connections to servers that propose legacy protocols (SSLv3).
  */
-@SFR("FCS_TLSC_EXT.4.1", "Verify secure renegotiation rejection (rejection of insecure ServerHello)", "network")
-class FcsTlscExt4RenegotiationTest {
+@SFR("FCS_TLSC_EXT.1.1", "Verify active rejection of legacy protocols (SSLv3)", "network")
+class FcsTlscExt1LegacyRejectionTest {
 
     @get:Rule
     val adb = AdbDeviceRule()
@@ -46,8 +45,8 @@ class FcsTlscExt4RenegotiationTest {
     @get:Rule
     val errs: ErrorCollector = ErrorCollector()
 
-    private var server: Tls12InsecureMockServer? = null
-    private val serverPort = 8448
+    private var server: TlsLegacyRejectMockServer? = null
+    private val serverPort = 8449
 
     @Before
     fun setup() {
@@ -57,7 +56,7 @@ class FcsTlscExt4RenegotiationTest {
             client.execute(ShellCommandRequest("rm /data/local/tmp/traffic.pcap"), serial)
         }
         
-        server = Tls12InsecureMockServer(serverPort).also { it.start() }
+        server = TlsLegacyRejectMockServer(serverPort).also { it.start() }
         
         // Setup adb reverse
         try {
@@ -83,16 +82,16 @@ class FcsTlscExt4RenegotiationTest {
     }
 
     @Test
-    fun testInsecureConnectionRejected() {
+    fun testLegacyProtocolRejected() {
         val hostName = "https://localhost:$serverPort/"
         
-        logi("[JUnit] Expecting TOE to reject server without secure renegotiation support")
-        val resp = TlsTestUtils.tlsCapturePacket(client, adb.deviceSerial, "insecure_reneg", hostName)
+        logi("[JUnit] Expecting TOE to actively reject SSLv3 ServerHello")
+        val resp = TlsTestUtils.tlsCapturePacket(client, adb.deviceSerial, "legacy_reject", hostName)
         val httpRet = resp.first
         logi("[JUnit] HTTP response: $httpRet")
         
         Thread.sleep(500)
-        val reaction = server?.lastClientReaction ?: Tls12InsecureMockServer.ClientReaction.NONE
+        val reaction = server?.lastClientReaction ?: TlsLegacyRejectMockServer.ClientReaction.NONE
         logi("[JUnit] Mock-observed client reaction: $reaction")
         
         // Assertions
@@ -101,10 +100,10 @@ class FcsTlscExt4RenegotiationTest {
             httpRet == "200", IsEqual(false)
         )
         
-        // Check if mock observed an abort (Fatal alert or close)
+        // Check if mock observed an abort
         val aborted = reaction in setOf(
-            Tls12InsecureMockServer.ClientReaction.FATAL_ALERT,
-            Tls12InsecureMockServer.ClientReaction.CONNECTION_CLOSED
+            TlsLegacyRejectMockServer.ClientReaction.FATAL_ALERT,
+            TlsLegacyRejectMockServer.ClientReaction.CONNECTION_CLOSED
         )
         errs.checkThat(
             a.msg("Mock must observe TOE aborting handshake, saw=$reaction"),
@@ -113,7 +112,7 @@ class FcsTlscExt4RenegotiationTest {
         
         errs.checkThat(
             a.msg("TOE must NOT continue handshake"),
-            reaction == Tls12InsecureMockServer.ClientReaction.HANDSHAKE_CONTINUED,
+            reaction == TlsLegacyRejectMockServer.ClientReaction.HANDSHAKE_CONTINUED,
             IsEqual(false)
         )
     }

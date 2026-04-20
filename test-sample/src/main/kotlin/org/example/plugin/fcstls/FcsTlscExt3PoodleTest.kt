@@ -33,7 +33,7 @@ import org.junit.rules.TestWatcher
  * The mock server sends a fatal `handshake_failure` alert to the first
  * ClientHello and records every subsequent ClientHello for analysis.
  */
-@SFR("FCS_TLSC_EXT.3.1", "POODLE-style fallback protection (TLS_FALLBACK_SCSV)", "network")
+@SFR("FCS_TLSC_EXT.3.1/Poodle", "POODLE-style fallback protection (TLS_FALLBACK_SCSV)", "network")
 class FcsTlscExt3PoodleTest {
 
     @get:Rule

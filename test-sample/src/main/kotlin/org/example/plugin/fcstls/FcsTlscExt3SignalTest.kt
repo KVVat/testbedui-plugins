@@ -31,8 +31,10 @@ import org.junit.rules.TestWatcher
  * BouncyCastle-based mock and a two-connection scenario). Here the scenario is
  * a single connection — which is what RFC 8446 §4.1.3 actually describes.
  */
-@SFR("FCS_TLSC_EXT.3.1", "Detect TLS 1.3→1.2 downgrade signal (RFC 8446 §4.1.3)", "network")
+@SFR("FCS_TLSC_EXT.3.1/Signal", "Detect TLS 1.3→1.2 downgrade signal (RFC 8446 §4.1.3)", "network")
 class FcsTlscExt3SignalTest {
+@get:Rule val adb = AdbDeviceRule()
+private val client: AndroidDebugBridgeClient by l
 
     @get:Rule
     val adb = AdbDeviceRule()

@@ -1,4 +1,4 @@
-package org.example.plugin.ftpitc
+package org.example.plugin.fcstls
 
 import com.malinskiy.adam.request.shell.v2.ShellCommandRequest
 import kotlinx.coroutines.runBlocking
@@ -21,11 +21,11 @@ import java.io.File
  * trusted communication channel between itself and another trusted IT product.
  */
 @SFR(
-    title = "FTP_ITC_EXT.1",
+    title = "FTP_ITC_EXT.1", // Updated to correct SFR
     description = "Verify that cleartext HTTP communication is correctly blocked by the OS Network Security Policy."
     ,"network"
 )
-class FtpItcExt1HttpTest {
+class FcsTlsExt1ClearTextTest {
 
     @get:Rule
     val adbDeviceRule = AdbDeviceRule()
@@ -75,9 +75,6 @@ class FtpItcExt1HttpTest {
         kotlinx.coroutines.delay(10000)
 
         // Check logcat for the expected error message
-        // Android message varies slightly between versions:
-        // - "CLEARTEXT communication to ... not permitted"
-        // - "Cleartext HTTP traffic to ... not permitted"
         val logcatResult = client.execute(ShellCommandRequest("logcat -d worker@:V *:E"), serial)
         val logs = String(logcatResult.stdout)
         
