@@ -10,17 +10,27 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 /**
+ * Result of a TLS capture operation.
+ */
+data class TlsResult(
+    val httpResponse: String,
+    val workerLogs: String,
+    val pcapPath: Path
+)
+
+/**
  * Shared utilities for TLS tests.
  */
 object TlsTestUtils {
 
     /**
      * Triggers the client app to connect to a URL and captures the result from logcat.
-     * Uses JUnitBridge.baseDir to resolve the path to the helper APK.
+     * Uses JUnitBridge.resourceDir to resolve the path to the helper APK.
      */
-    fun tlsCapturePacket(client: AndroidDebugBridgeClient, serial: String, testlabel: String, testurl: String): Pair<String, Path> {
+    fun tlsCapturePacket(client: AndroidDebugBridgeClient, serial: String, testlabel: String, testurl: String): TlsResult {
         var pcap: Path = Paths.get("/")
         var httpResp: String = ""
+        var workerLogsStr: String = ""
 
         runBlocking {
             // Use resourceDir as intended by the project structure
@@ -51,6 +61,7 @@ object TlsTestUtils {
             // Find all lines containing "worker@"
             val workerLines = lines.filter { it.contains("worker@") }
             if (workerLines.isNotEmpty()) {
+                workerLogsStr = workerLines.joinToString("\n")
                 org.example.project.JUnitBridge.logging?.invoke("--- Worker Logs Start ---", org.example.project.TestLogLevel.INFO)
                 workerLines.forEach { line ->
                     org.example.project.JUnitBridge.logging?.invoke(line, org.example.project.TestLogLevel.INFO)
@@ -74,6 +85,6 @@ object TlsTestUtils {
                 httpResp = "Error: marker not found in logcat"
             }
         }
-        return Pair(httpResp, pcap)
+        return TlsResult(httpResp, workerLogsStr, pcap)
     }
 }

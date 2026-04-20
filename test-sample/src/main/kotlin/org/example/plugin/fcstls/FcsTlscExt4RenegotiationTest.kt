@@ -29,6 +29,13 @@ import org.example.plugin.utils.loge
  * FCS_TLSC_EXT.4: Secure Renegotiation
  * Verify that the TOE actively rejects insecure renegotiation attempts or connections
  * to servers that do not support secure renegotiation.
+ *
+ * NOTE: In the current implementation, the test passes because the client aborts the
+ * handshake with Alert 47 (illegal_parameter). However, the underlying reason logged
+ * by the client (BoringSSL) was 'SERVER_ECHOED_INVALID_SESSION_ID' because the mock
+ * server echoed the session ID. This effectively fails the connection (which is the
+ * goal), but may not strictly isolate the lack of 'renegotiation_info' extension as the
+ * sole cause of rejection.
  */
 @SFR("FCS_TLSC_EXT.4.1", "Verify secure renegotiation rejection (rejection of insecure ServerHello)", "network")
 class FcsTlscExt4RenegotiationTest {
@@ -88,7 +95,7 @@ class FcsTlscExt4RenegotiationTest {
         
         logi("[JUnit] Expecting TOE to reject server without secure renegotiation support")
         val resp = TlsTestUtils.tlsCapturePacket(client, adb.deviceSerial, "insecure_reneg", hostName)
-        val httpRet = resp.first
+        val httpRet = resp.httpResponse
         logi("[JUnit] HTTP response: $httpRet")
         
         Thread.sleep(500)

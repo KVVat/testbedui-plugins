@@ -33,9 +33,6 @@ import org.junit.rules.TestWatcher
  */
 @SFR("FCS_TLSC_EXT.3.1/Signal", "Detect TLS 1.3→1.2 downgrade signal (RFC 8446 §4.1.3)", "network")
 class FcsTlscExt3SignalTest {
-@get:Rule val adb = AdbDeviceRule()
-private val client: AndroidDebugBridgeClient by l
-
     @get:Rule
     val adb = AdbDeviceRule()
     private val client: AndroidDebugBridgeClient by lazy { adb.adb }
@@ -92,7 +89,7 @@ private val client: AndroidDebugBridgeClient by l
 
         logi("[JUnit] Single connection — expecting TOE to reject downgrade signal")
         val resp = TlsTestUtils.tlsCapturePacket(client, adb.deviceSerial, "downgrade_signal", hostName)
-        val httpRet = resp.first
+        val httpRet = resp.httpResponse
         logi("[JUnit] HTTP response: $httpRet")
 
         // Give the mock a moment to finalise its observation of the client's reaction.

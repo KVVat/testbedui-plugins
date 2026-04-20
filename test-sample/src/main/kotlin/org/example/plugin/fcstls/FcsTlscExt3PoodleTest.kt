@@ -92,7 +92,7 @@ class FcsTlscExt3PoodleTest {
 
         logi("[JUnit] Triggering handshake; mock will reject with handshake_failure")
         val resp = TlsTestUtils.tlsCapturePacket(client, adb.deviceSerial, "poodle_fallback", hostName)
-        val httpRet = resp.first
+        val httpRet = resp.httpResponse
         logi("[JUnit] HTTP response: $httpRet")
 
         // Give time for any fallback retries to reach the mock.

@@ -1,4 +1,4 @@
-package org.example.plugin.fcstls
+package org.example.plugin.ftpitc // Updated package
 
 import com.malinskiy.adam.request.shell.v2.ShellCommandRequest
 import kotlinx.coroutines.runBlocking
@@ -25,7 +25,7 @@ import java.io.File
     description = "Verify that cleartext HTTP communication is correctly blocked by the OS Network Security Policy."
     ,"network"
 )
-class FcsTlsExt1ClearTextTest {
+class FtpItecExt1 { // Updated class name
 
     @get:Rule
     val adbDeviceRule = AdbDeviceRule()

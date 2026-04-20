@@ -87,7 +87,7 @@ class FcsTlscExt1LegacyRejectionTest {
         
         logi("[JUnit] Expecting TOE to actively reject SSLv3 ServerHello")
         val resp = TlsTestUtils.tlsCapturePacket(client, adb.deviceSerial, "legacy_reject", hostName)
-        val httpRet = resp.first
+        val httpRet = resp.httpResponse
         logi("[JUnit] HTTP response: $httpRet")
         
         Thread.sleep(500)

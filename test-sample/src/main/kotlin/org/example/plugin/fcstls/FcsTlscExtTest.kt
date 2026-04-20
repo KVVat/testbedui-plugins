@@ -193,11 +193,11 @@ class FcsTlscExtTest {
   fun testNormalHost() {
     val hostName = "https://tls-v1-2.badssl.com:1012/"
     val resp = tlsCapturePacket("normal", hostName)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     System.out.println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
     SFRCheckList.pass("FCS_TLSC_EXT.1.1")
@@ -207,11 +207,11 @@ class FcsTlscExtTest {
   fun testTls10Reject() {
     val hostName = "https://tls-v1-0.badssl.com:1010/"
     val resp = tlsCapturePacket("tls10", hostName)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should not be 200 (rejected)"), httpret == "200", IsEqual(false))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
     SFRCheckList.pass("FCS_TLSC_EXT.1.2")
@@ -221,11 +221,11 @@ class FcsTlscExtTest {
   fun testTls11Reject() {
     val hostName = "https://tls-v1-1.badssl.com:1011/"
     val resp = tlsCapturePacket("tls11", hostName)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should not be 200 (rejected)"), httpret == "200", IsEqual(false))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
     SFRCheckList.pass("FCS_TLSC_EXT.1.2")
@@ -235,11 +235,11 @@ class FcsTlscExtTest {
   fun testNullCipherReject() {
     val hostName = "https://null.badssl.com/"
     val resp = tlsCapturePacket("nullcipher", hostName)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should not be 200 (rejected)"), httpret == "200", IsEqual(false))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
     SFRCheckList.pass("FCS_TLSC_EXT.1.4")
@@ -249,11 +249,11 @@ class FcsTlscExtTest {
   fun test3DesReject() {
     val hostName = "https://3des.badssl.com/"
     val resp = tlsCapturePacket("3des", hostName)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should not be 200 (rejected)"), httpret == "200", IsEqual(false))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
     SFRCheckList.pass("FCS_TLSC_EXT.1.3")
@@ -263,11 +263,11 @@ class FcsTlscExtTest {
   fun testRc4Reject() {
     val hostName = "https://rc4.badssl.com/"
     val resp = tlsCapturePacket("rc4", hostName)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should not be 200 (rejected)"), httpret == "200", IsEqual(false))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
     SFRCheckList.pass("FCS_TLSC_EXT.1.3")
@@ -277,11 +277,11 @@ class FcsTlscExtTest {
   fun testExpiredHost() {
     val hostName = "https://expired.badssl.com/"
     val resp = tlsCapturePacket("expired", hostName)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should be 525 or error"), httpret, IsEqual("525"))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = true)
     
     SFRCheckList.pass("FCS_TLSC_EXT.1.5")
@@ -291,11 +291,11 @@ class FcsTlscExtTest {
   fun testInvalidHost() {
     val hostName = "https://wrong.host.badssl.com/"
     val resp = tlsCapturePacket("invalid", hostName)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should be 526 or error"), httpret, IsEqual("526"))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = true)
     
     SFRCheckList.pass("FCS_TLSC_EXT.1.5")
@@ -305,11 +305,11 @@ class FcsTlscExtTest {
   fun testMutualAuthNoCert() {
     val hostName = "https://tls-v1-2.badssl.com:1012/"
     val resp = tlsCapturePacket("nocert", hostName)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false, expectClientCert = false)
   }
 
@@ -343,11 +343,11 @@ class FcsTlscExtTest {
     }
 
     val resp = tlsCapturePacket("withcert", hostName, p12Path, p12Pass)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false, expectClientCert = true)
   }
 
@@ -355,11 +355,11 @@ class FcsTlscExtTest {
   fun testSessionResumption() {
     val hostName = "https://tls-v1-2.badssl.com:1012/"
     val resp = tlsCapturePacket("resumption", hostName, resumption = true)
-    val httpret = resp.first
+    val httpret = resp.httpResponse
     println("[JUnit] HTTP response: $httpret")
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
     
-    val pcapPath = resp.second
+    val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false, expectResumption = true)
     
     SFRCheckList.pass("FCS_TLSC_EXT.1.6")
@@ -556,9 +556,10 @@ class FcsTlscExtTest {
     }
   }
 
-  private fun tlsCapturePacket(testlabel:String, testurl:String, p12Path: String? = null, p12Pass: String? = null, resumption: Boolean = false): Pair<String, Path> {
+  private fun tlsCapturePacket(testlabel:String, testurl:String, p12Path: String? = null, p12Pass: String? = null, resumption: Boolean = false): org.example.plugin.utils.TlsResult {
     var pcap: Path = Paths.get("/")
     var httpResp: String = ""
+    var workerLogsStr: String = ""
     val serial = adb.deviceSerial
 
     runBlocking {
@@ -615,6 +616,20 @@ class FcsTlscExtTest {
         httpResp = "Error: timeout waiting for logcat"
       }
 
+      // Capture worker logs
+      val logcatResult = client.execute(ShellCommandRequest("su 0 logcat -d"), serial)
+      val logcatOutput = String(logcatResult.stdout)
+      val lines = logcatOutput.split("\n")
+      val workerLines = lines.filter { it.contains("worker@") }
+      if (workerLines.isNotEmpty()) {
+          workerLogsStr = workerLines.joinToString("\n")
+          org.example.project.JUnitBridge.logging?.invoke("--- Worker Logs Start ---", org.example.project.TestLogLevel.INFO)
+          workerLines.forEach { line ->
+              org.example.project.JUnitBridge.logging?.invoke(line, org.example.project.TestLogLevel.INFO)
+          }
+          org.example.project.JUnitBridge.logging?.invoke("--- Worker Logs End ---", org.example.project.TestLogLevel.INFO)
+      }
+
       Thread.sleep(2000) // Give tcpdump time to flush buffers
       client.execute(ShellCommandRequest("su 0 sh -c \"pkill tcpdump\""), serial)
       tcpdumpJob.cancel()
@@ -640,7 +655,7 @@ class FcsTlscExtTest {
       AdamUtils.pullFile(src, pcap0.toString(), adb, true)
       pcap = copyPcapToOutPath(pcap0, testlabel)
     }
-    return Pair(httpResp, pcap)
+    return org.example.plugin.utils.TlsResult(httpResp, workerLogsStr, pcap)
   }
 
   val OUT_PATH = File(JUnitBridge.resultsDir, "capture").absolutePath + "/"
