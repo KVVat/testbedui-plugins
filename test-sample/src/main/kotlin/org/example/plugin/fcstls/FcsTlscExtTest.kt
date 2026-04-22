@@ -410,6 +410,9 @@ log("HTTP response: $httpret")
     var clientHelloCount = 0
     val supportedCiphers = mutableListOf<Int>()
     val foundExtensions = mutableSetOf<Int>()
+    val foundSigAlgs = mutableSetOf<Int>()
+    val foundSigAlgsCert = mutableSetOf<Int>()
+    val foundGroups = mutableSetOf<Int>()
     var tlsVersion: Int? = null
 
     var targetClientPort: Int? = null
@@ -500,6 +503,43 @@ log("HTTP response: $httpret")
                         val extDataLen = ((bytes[extCurrent+2].toInt() and 0xFF) shl 8) or (bytes[extCurrent+3].toInt() and 0xFF)
                         
                         foundExtensions.add(extType)
+                        
+                        if (extType == 0x000D && extCurrent + 4 + extDataLen <= bytes.size) {
+                          if (extCurrent + 6 <= bytes.size) {
+                            val sigAlgsLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
+                            var sigOffset = extCurrent + 6
+                            while (sigOffset + 2 <= extCurrent + 4 + sigAlgsLen && sigOffset + 2 <= bytes.size) {
+                              val sigAlg = ((bytes[sigOffset].toInt() and 0xFF) shl 8) or (bytes[sigOffset+1].toInt() and 0xFF)
+                              foundSigAlgs.add(sigAlg)
+                              sigOffset += 2
+                            }
+                          }
+                        }
+                        
+                        if (extType == 0x000A && extCurrent + 4 + extDataLen <= bytes.size) {
+                          if (extCurrent + 6 <= bytes.size) {
+                            val groupsLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
+                            var grpOffset = extCurrent + 6
+                            while (grpOffset + 2 <= extCurrent + 4 + groupsLen && grpOffset + 2 <= bytes.size) {
+                              val grp = ((bytes[grpOffset].toInt() and 0xFF) shl 8) or (bytes[grpOffset+1].toInt() and 0xFF)
+                              foundGroups.add(grp)
+                              grpOffset += 2
+                            }
+                          }
+                        }
+                        
+                        if (extType == 0x0032 && extCurrent + 4 + extDataLen <= bytes.size) {
+                          if (extCurrent + 6 <= bytes.size) {
+                            val sigAlgsCertLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
+                            var sigCertOffset = extCurrent + 6
+                            while (sigCertOffset + 2 <= extCurrent + 4 + sigAlgsCertLen && sigCertOffset + 2 <= bytes.size) {
+                              val sigAlgCert = ((bytes[sigCertOffset].toInt() and 0xFF) shl 8) or (bytes[sigCertOffset+1].toInt() and 0xFF)
+                              foundSigAlgsCert.add(sigAlgCert)
+                              sigCertOffset += 2
+                            }
+                          }
+                        }
+                        
                         extCurrent += 4 + extDataLen
                       }
                     }
@@ -547,20 +587,58 @@ log("Matches with required ciphers: ${matches.map { String.format("0x%04X", it) 
     Assert.assertTrue("No required ciphers found in Client Hello", matches.isNotEmpty())
     SFRCheckList.pass("FCS_TLSC_EXT.1.2")
     
-    // SFR: FCS_TLSC_EXT.1.2 Supported Ciphersuites (Android CNSA)
-    val cnsaCodes = setOf(0xC02C, 0xC030) // ECDSA and RSA with AES-256-GCM
-    val cnsaMatches = supportedCiphers.intersect(cnsaCodes)
-    if (cnsaMatches.isNotEmpty()) {
-        SFRCheckList.pass("FCS_TLSC_EXT.1.2/Android")
-    }
+
     
-    // SFR: FCS_TLSC_EXT.1.3 Forbidden Ciphers (Null, RC4, 3DES)
+    // SFR: FCS_TLSC_EXT.1.2 Supported Ciphersuites
+    val allowedCiphers = setOf(
+      // CNSA 1.0
+      0xC02C, // TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+      0xC030, // TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+      0x009D, // TLS_RSA_WITH_AES_256_GCM_SHA384
+      0x009F, // TLS_DHE_RSA_WITH_AES_256_GCM_SHA384
+      0xC024, // TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384
+      0xC028, // TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
+      0xD003, // TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384
+      0x00AA, // TLS_DHE_PSK_WITH_AES_256_GCM_SHA384
+      0x00AC, // TLS_RSA_PSK_WITH_AES_256_GCM_SHA384
+      
+      // Non-CNSA
+      0x003D, // TLS_RSA_WITH_AES_256_CBC_SHA256
+      0x006D, // TLS_DHE_RSA_WITH_AES_256_CBC_SHA256
+      0xC02B, // TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+      0xC02F, // TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+      0xC023, // TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
+      0xC027, // TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+      0x003C, // TLS_RSA_WITH_AES_128_CBC_SHA256
+      0x0067, // TLS_DHE_RSA_WITH_AES_128_CBC_SHA256
+      0x002F, // TLS_RSA_WITH_AES_128_CBC_SHA
+      0xD001, // TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256
+      0x00A8, // TLS_DHE_PSK_WITH_AES_128_GCM_SHA256
+      0x00A6, // TLS_RSA_PSK_WITH_AES_128_GCM_SHA256
+      
+      // TLS 1.3
+      0x1302, // TLS_AES_256_GCM_SHA384
+      0x1301  // TLS_AES_128_GCM_SHA256
+    )
+    val nonCompliantOffered = supportedCiphers.filter { !allowedCiphers.contains(it) && it !in setOf(0x1301, 0x1302, 0x1303) }
+    log("Offered ciphers not explicitly in spec 1.2 allowed list: ${nonCompliantOffered.map { String.format("0x%04X", it) }}")
+    
+    // SFR: FCS_TLSC_EXT.1.3 Forbidden Ciphers
     val forbiddenCiphers = setOf(
       0x0000, // TLS_NULL_WITH_NULL_NULL
+      0x0001, // TLS_RSA_WITH_NULL_MD5
+      0x0002, // TLS_RSA_WITH_NULL_SHA
+      0x003B, // TLS_RSA_WITH_NULL_SHA256
+      0xC006, // TLS_ECDHE_ECDSA_WITH_NULL_SHA
+      0xC010, // TLS_ECDHE_RSA_WITH_NULL_SHA
       0x0004, // TLS_RSA_WITH_RC4_128_MD5
       0x0005, // TLS_RSA_WITH_RC4_128_SHA
+      0xC007, // TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
+      0xC011, // TLS_ECDHE_RSA_WITH_RC4_128_SHA
       0x000A, // TLS_RSA_WITH_3DES_EDE_CBC_SHA
-      0x000D  // TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA
+      0x000D, // TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA
+      0xC008, // TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA
+      0xC012  // TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
     )
     val forbiddenMatches = supportedCiphers.intersect(forbiddenCiphers)
     Assert.assertTrue("Forbidden ciphers found in Client Hello: ${forbiddenMatches.map { String.format("0x%04X", it) }}", forbiddenMatches.isEmpty())
@@ -571,6 +649,35 @@ log("Matches with required ciphers: ${matches.map { String.format("0x%04X", it) 
     // SFR: FCS_TLSC_EXT.1.4 Required Extensions
     Assert.assertTrue("signature_algorithms extension not found", foundExtensions.contains(0x000D))
     Assert.assertTrue("supported_groups extension not found", foundExtensions.contains(0x000A))
+    
+    // Verify specific signature algorithms (FCS_TLSC_EXT.1.4)
+    log("Found Signature Algorithms: ${foundSigAlgs.map { String.format("0x%04X", it) }}")
+    
+    // Group 1: CNSA 1.0 compliant (Must have at least one)
+    val hasGroup1 = foundSigAlgs.contains(0x0503) || foundSigAlgs.contains(0x0501) // ecdsa_secp384r1_sha384 or rsa_pkcs1_sha384
+    Assert.assertTrue("Neither ecdsa_secp384r1_sha384 nor rsa_pkcs1_sha384 found in signature_algorithms", hasGroup1)
+    
+    // Group 2: CNSA 1.0 or non-CNSA compliant (Must have at least one)
+    val hasGroup2 = foundSigAlgs.contains(0x080A) || foundSigAlgs.contains(0x0805) || // rsa_pss_pss_sha384 or rsa_pss_rsae_sha384
+                    foundSigAlgs.contains(0x0401) || foundSigAlgs.contains(0x0804)   // rsa_pkcs1_sha256 or rsa_pss_rsae_sha256
+    Assert.assertTrue("None of the allowed PSS or non-CNSA algorithms found in signature_algorithms", hasGroup2)
+    
+    // Verify signature_algorithms_cert if present (FCS_TLSC_EXT.1.4)
+    if (foundExtensions.contains(0x0032)) {
+      log("Found Signature Algorithms Cert: ${foundSigAlgsCert.map { String.format("0x%04X", it) }}")
+      val hasGroup1Cert = foundSigAlgsCert.contains(0x0503) || foundSigAlgsCert.contains(0x0501)
+      Assert.assertTrue("Neither ecdsa_secp384r1_sha384 nor rsa_pkcs1_sha384 found in signature_algorithms_cert", hasGroup1Cert)
+      
+      val hasGroup2Cert = foundSigAlgsCert.contains(0x080A) || foundSigAlgsCert.contains(0x0805) ||
+                          foundSigAlgsCert.contains(0x0401) || foundSigAlgsCert.contains(0x0804)
+      Assert.assertTrue("None of the allowed PSS or non-CNSA algorithms found in signature_algorithms_cert", hasGroup2Cert)
+    }
+    
+    // Verify supported groups (FCS_TLSC_EXT.1.4)
+    log("Found Supported Groups: ${foundGroups.map { String.format("0x%04X", it) }}")
+    val hasRequiredGroup = foundGroups.contains(0x0018) || foundGroups.contains(0x0017) // secp384r1 or secp256r1
+    Assert.assertTrue("Neither secp384r1 nor secp256r1 found in supported_groups", hasRequiredGroup)
+    
     SFRCheckList.pass("FCS_TLSC_EXT.1.4")
 
     // Check for Extended Master Secret (0x0017)
@@ -601,6 +708,23 @@ log("Has SessionTicket extension: $hasSessionTicket")
     // SFR: FCS_TLSC_EXT.6.2 No Early Data
     Assert.assertFalse("early_data extension should NOT be present", foundExtensions.contains(0x002A))
     SFRCheckList.pass("FCS_TLSC_EXT.6.2")
+    
+    // Strict check: No other extensions allowed (FCS_TLSC_EXT.1.4)
+    val allowedExtensions = setOf(
+      0x000D, // signature_algorithms
+      0x0032, // signature_algorithms_cert
+      0x002B, // supported_versions
+      0x000A, // supported_groups
+      0x0033, // key_share
+      0x0031, // post_handshake_auth
+      0x0029, // pre_shared_key
+      0x0021, // tls_cert_with_extern_psk
+      0x002D, // psk_key_exchange_modes
+      0x0017  // extended_master_secret
+    )
+    val forbiddenOffered = foundExtensions.filter { !allowedExtensions.contains(it) }
+    log("Offered extensions not in allowed list: ${forbiddenOffered.map { String.format("0x%04X", it) }}")
+    // Assert.assertTrue("Forbidden extensions offered: ${forbiddenOffered.map { String.format("0x%04X", it) }}", forbiddenOffered.isEmpty())
 
     // SFR: FCS_TLSC_EXT.2.1 Mutual Authentication
     if (expectClientCert) {

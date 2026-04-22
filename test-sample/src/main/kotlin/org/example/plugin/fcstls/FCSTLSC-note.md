@@ -48,13 +48,28 @@ This section maps the specific Security Functional Requirements (SFRs) defined i
 
 These tests verify the TOE's passive behavior when connecting to endpoints with strictly configured constraints.
 
-* **FCS\_TLSC\_EXT.1.1 & 1.2 (Protocol Versions \- Passive Refusal):**  
-  * `testNormalHost`: Confirms successful connection using TLS 1.2 or TLS 1.3.  
+* **FCS\_TLSC\_EXT.1.1 (Protocol Versions):**  
+  * `testTls12Support` / `testTls13Support`: Confirms successful connection using TLS 1.2 and TLS 1.3 respectively.  
   * `testTls10Reject` / `testTls11Reject`: Verifies that connection attempts fail when the target server *only* supports legacy protocols (TLS 1.0/1.1).  
-* **FCS\_TLSC\_EXT.1.3 & 1.4 (Cryptographic Ciphers \- Passive Refusal):**  
+* **FCS\_TLSC\_EXT.1.2 (Supported Ciphersuites):**  
+  * Verified in `analyzePcap` by checking for the presence of required ciphersuites in `ClientHello`:
+    * `TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256` (`0xC02B`)
+    * `TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384` (`0xC02C`)
+    * `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` (`0xC02F`)
+    * `TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384` (`0xC030`)
+* **FCS\_TLSC\_EXT.1.3 (Forbidden Ciphers):**  
   * `testRc4Reject` / `test3DesReject` / `testNullCipherReject`: Verifies connection failure when the target server *only* supports prohibited weak or null ciphers.  
-* **FCS\_TLSC\_EXT.1.5 & 1.6 (Certificate Validation):**  
-  * `testExpiredHost` / `testInvalidHost`: Confirms connection termination with an appropriate exception when presented with expired certificates or a mismatched Reference Identifier.  
+* **FCS\_TLSC\_EXT.1.4 (Supported & Forbidden Extensions):**  
+  * Verified in `analyzePcap` by checking for required extensions in `ClientHello`:
+    * `signature_algorithms` (`0x000D`)
+    * `supported_groups` (`0x000A`)
+    * `extended_master_secret` (`0x0017`)
+    * `psk_key_exchange_modes` (`0x002D`)
+  * Also verified the **absence** of the `early_data` (`0x002A`) extension.
+* **FCS\_TLSC\_EXT.1.5 (Identifier Verification):**  
+  * `testInvalidHost`: Confirms connection termination when presented with a mismatched Reference Identifier.  
+* **FCS\_TLSC\_EXT.1.6 (Invalid Certificate Rejection):**  
+  * `testExpiredHost`: Confirms connection termination when presented with an expired certificate.  
 
 #### **3.2 Phase 2: Active Verification Tests (Custom Raw Socket Servers)**	
 
@@ -74,7 +89,7 @@ These tests actively simulate malicious or non-compliant server behavior to veri
 * **FCS\_TLSC\_EXT.4 (Secure Renegotiation):**  
   * **Test Case:** `FcsTlscExt4RenegotiationTest`
   * **Implementation:** Uses `Tls12InsecureMockServer` (raw socket) to send a TLS 1.2 `ServerHello` *without* the `renegotiation_info` extension (simulating an insecure server).
-  * **Result:** **Pass**. The client actively rejected the connection with a fatal alert `47` (`illegal_parameter`).
+  * **Result:** **Pass** (with caveat). The client actively rejected the connection with a fatal alert `47` (`illegal_parameter`). However, the underlying reason logged by BoringSSL was `WRONG_CERTIFICATE_TYPE` (even after providing a server certificate from badssl.com), not strictly isolating the lack of renegotiation extension.
 
 #### **3.3 Related System Requirements (From Mobile Device Fundamentals PP)**
 
@@ -83,13 +98,16 @@ These tests actively simulate malicious or non-compliant server behavior to veri
   * **Implementation:** Triggers a cleartext HTTP connection and verifies that it is blocked by the OS Network Security Policy.
   * **Result:** **Pass**. The OS correctly blocked the traffic with `Cleartext HTTP traffic to ... not permitted`.
 
-### **IV. Resolved Concerns and Limitations**
 
-The concerns identified in the previous version of this document regarding the inability to test active rejection and downgrade protection have been **fully resolved** by moving away from Bouncy Castle abstraction to raw socket packet construction for mock servers.
+### **IV. Identified Concerns and Limitations**
 
-* **[Resolved] Incomplete Verification of Secure Renegotiation (FCS\_TLSC\_EXT.4):** Now verified by simulating a server that lacks secure renegotiation support and confirming client rejection.
-* **[Resolved] Lack of Active Rejection Verification (FCS\_TLSC\_EXT.1):** Now verified by actively forcing an SSLv3 response and confirming client abort with Alert 70.
-* **[Resolved] Limitation in Verifying Downgrade Protection (FCS\_TLSC\_EXT.3.1):** Now verified both by signal injection (Alert 47) and fallback denial.
+**4.1 Implementation Note: PCAP Parsing Fragility (Android SLL2 & IPv6)**
+* **Concern:** The Android OS utilizes the Linux Cooked Capture v2 (SLL2) link-layer header format. The `io.pkts` library does not natively support SLL2, requiring monkey patches. Furthermore, `io.pkts` has a bug in parsing IPv6 headers over SLL2, reading parts of the IPv6 address as TCP ports.
+* **Impact & Workaround:** This caused false negatives in port filtering for TLS 1.3 tests. We worked around this by forcing IPv4 communication via `ipv4.google.com`. For robust testing, a library that fully supports SLL2 and IPv6 is recommended.
+
+**4.2 Renegotiation Test Strictness Limitation**
+* **Concern:** In `FcsTlscExt4RenegotiationTest`, the mock server sends a certificate to proceed with the handshake. However, BoringSSL rejects it with `WRONG_CERTIFICATE_TYPE` because the certificate is not fully trusted or suitable as a server certificate in its view.
+* **Impact:** The test passes because the connection fails (as expected), but the failure is triggered by the certificate check rather than the missing secure renegotiation extension. Strict isolation requires a valid certificate chain recognized by BoringSSL.
 
 ### **V. Next Steps and Reference Repositories**
 
