@@ -82,19 +82,19 @@ Two approaches, **recommended: A (Netty)**:
 
 ### 2.0 Background: the ST-claim vs. API-reachability asymmetry
 
-`FCS_TLSC_EXT.1.5` in PKG_TLS_V2.1 ([FCSTLSC-android-spec.md:160-179](./FCSTLSC-android-spec.md#L160-L179)) is a two-level selection. The outer selection picks how the TSF performs identifier matching; if the "verify that a presented identifier of name type [selection]" branch is claimed, the inner selection lists which name types are in scope. Possible inner types:
+`FCS_TLSC_EXT.1.5` in PKG_TLS_V2.1 ([FCSTLSC-android-spec.md:160-179](./FCSTLSC-android-spec.md#L160-L179)) is a two-level selection. The outer selection picks how the TSF performs identifier matching; if the "verify that a presented identifier of name type [selection]" branch is claimed, the inner selection lists which name types are in scope. Possible inner types (with plain-language description):
 
-- `dNSName` (RFC 6125)
-- `uniformResourceIdentifier` (RFC 6125)
-- `SRVname` (RFC 6125)
-- `Common Name conversion to dNSName` (RFC 5280 + RFC 6125)
-- `directoryName` (RFC 5280)
-- `IPAddress` (RFC 5280)
-- `rfc822Name` (RFC 5280)
+- `dNSName` (RFC 6125) — DNS hostname, e.g. `www.example.com`
+- `uniformResourceIdentifier` (RFC 6125) — URI, e.g. `sip:alice@example.com`, `urn:...`
+- `SRVname` (RFC 6125) — service locator, e.g. `_xmpp-client.example.com`
+- `Common Name conversion to dNSName` (RFC 5280 + RFC 6125) — legacy CN-as-hostname fallback when no SAN is present
+- `directoryName` (RFC 5280) — X.500 Distinguished Name, e.g. `C=US,O=Example,CN=...`
+- `IPAddress` (RFC 5280) — literal IPv4/IPv6 address
+- `rfc822Name` (RFC 5280) — **email address** in RFC 822 form (e.g. `alice@example.com`); typical for S/MIME and EAP-TLS client certs, not server certs
 
 **Observed state (as of 2026-04-22):** the Security Target applicable to this TOE appears to claim the full (or near-full) inner set, *including* `uniformResourceIdentifier`, `SRVname`, `directoryName`, `rfc822Name`.
 
-**The asymmetry:** the evaluation target scope in [FCSTLSC-note.md §1.3](./FCSTLSC-note.md) is "Standard internet clients (e.g., Chrome/OkHttp3) targeting HttpURLConnection, OkHttp3 APIs." Those APIs only compare reference identifiers against `dNSName` and `IPAddress` per RFC 6125 — no Android-shipped standard HTTPS client API consults URI / SRVname / rfc822Name / directoryName. Reaching those name types in a TLS client context requires either:
+**The asymmetry:** the evaluation target scope in [FCSTLSC-note.md §1.3](./FCSTLSC-note.md) is "Standard internet clients (e.g., Chrome/OkHttp3) targeting HttpURLConnection, OkHttp3 APIs." Those APIs only compare reference identifiers against `dNSName` and `IPAddress`. The authoritative basis for that limitation is **RFC 2818 §3.1 "Server Identity"** (the HTTPS-specific spec, 2000), which mandates `dNSName` SAN with `iPAddress` SAN for literal-IP URIs and allows `CN` only as a legacy fallback. RFC 6125 (2011) is a general framework and per its own §1.4 does *not* override RFC 2818 for HTTPS; its role here is only to refine `dNSName` wildcard-matching rules (§6.4.3). RFC 6125 §6.5 (SRV-ID) and §6.5.2 (URI-ID) explicitly require a per-application-protocol opt-in, and **HTTPS has never adopted them**. Consequently no Android-shipped standard HTTPS client API consults URI / SRVname / rfc822Name / directoryName. Reaching those name types in a TLS client context requires either:
 
 - a different TSF entry point (EAP-TLS supplicant via `wpa_supplicant`, IPsec/IKE daemons, enterprise VPN stacks), or
 - a custom application that directly invokes `X509TrustManager` / `Conscrypt` internals and implements its own identifier matching.
@@ -129,10 +129,16 @@ For every inner-selection item that the ST claims but this testbed cannot drive 
 
 - **Primary evidence:** vendor ATE results + TSF design documentation (per CEM). Expected content: pointer to the Android `libcore` / Conscrypt code path that performs the match, plus any vendor-internal test results.
 - **Secondary supporting evidence (where we can contribute):** AOSP source references. Candidates worth citing in note §4.3 when finalizing:
-  - `libcore/ojluni/src/main/java/sun/security/util/HostnameChecker.java` — reference matching for `dNSName` / `IPAddress` / CN fallback
+  - `external/conscrypt/repackaged/common/src/main/java/com/android/org/conscrypt/OkHostnameVerifier.java` — concrete proof of the dNSName + iPAddress scope: `verifyHostname(String, X509Certificate)` walks only SAN type 2 (dNSName), and `verifyIpAddress(String, X509Certificate)` walks only SAN type 7 (iPAddress). URI (type 6), rfc822Name (type 1), directoryName (type 4) are not inspected.
   - `external/conscrypt/repackaged/common/src/main/java/com/android/org/conscrypt/` — TrustManager / X.509 chain validation
+  - `libcore/ojluni/src/main/java/sun/security/util/HostnameChecker.java` — legacy JSSE reference matcher (dNSName / iPAddress / CN fallback)
   - `frameworks/opt/net/wifi/` (wpa_supplicant integration) — EAP-TLS identifier matching path for URI/SRV/rfc822
-- **Scope statement:** the test suite here does not replicate vendor ATE. It complements it by covering the two name types reachable through standard HTTPS client APIs, which are also the two most commonly used in the wild.
+  - OkHttp3 upstream: [`okhttp/src/main/kotlin/okhttp3/internal/tls/OkHostnameVerifier.kt`](https://github.com/square/okhttp/blob/master/okhttp/src/main/kotlin/okhttp3/internal/tls/OkHostnameVerifier.kt) — the app-layer HTTPS client used by most modern Android apps; same dNSName + iPAddress scope as Conscrypt's verifier
+- **Normative basis for the API-surface limitation:**
+  - **RFC 2818 §3.1 "Server Identity"** — HTTPS-specific spec that restricts identity to `dNSName` SAN + `iPAddress` SAN + `CN` legacy fallback. This is the authoritative reason HttpURLConnection / OkHttp3 do not look at URI / SRV / rfc822Name / directoryName.
+  - **RFC 6125 §1.4** — explicitly states it does not supersede application-specific specs like RFC 2818. Its role for HTTPS is limited to clarifying dNSName wildcard rules (§6.4.3).
+  - **RFC 6125 §6.5 / §6.5.2** — SRV-ID and URI-ID matching require per-protocol opt-in, which HTTPS has never declared.
+- **Scope statement:** the test suite here does not replicate vendor ATE. It complements it by covering the two name types reachable through standard HTTPS client APIs, which are also the two mandated by RFC 2818 for HTTPS and the two most commonly used in the wild.
 
 This is a **documented gap, not an omission.** If a reviewer asks why URI SAN is not exercised here, the answer is "evaluation target §1.3 is standard internet clients; URI SAN requires a non-standard TSF entry point; evidence for that path is supplied by vendor ATE / design docs, cross-referenced in §4.3."
 
