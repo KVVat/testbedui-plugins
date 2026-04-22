@@ -33,6 +33,8 @@ import io.pkts.Pcap
 import io.pkts.packet.TCPPacket
 import io.pkts.protocol.Protocol
 import org.example.plugin.utils.SFRCheckList
+import org.example.plugin.utils.*
+
 
 /**
  * FCS_TLSC_EXT.1 TLS Client Protocol
@@ -40,25 +42,25 @@ import org.example.plugin.utils.SFRCheckList
  *
  * ### Requirement Mapping
  *
- * #### FCS_TLSC_EXT.1: Client Encryption and Rejection
- * * **FCS_TLSC_EXT.1.1: TLS 1.2/1.3 Support**
- *   * Verification: Access TLS 1.2 server and verify successful connection (HTTP 200).
- *   * Test: `testNormalHost`
- * * **FCS_TLSC_EXT.1.2: Legacy TLS Rejection**
- *   * Verification: Access TLS 1.0/1.1 server and verify connection failure.
- *   * Test: `testTls10Reject`, `testTls11Reject`
- * * **FCS_TLSC_EXT.1.3: Weak Cipher Rejection**
- *   * Verification: Access server with only RC4/3DES and verify connection failure.
- *   * Test: `testRc4Reject`, `test3DesReject`
- * * **FCS_TLSC_EXT.1.4: Null Cipher Rejection**
- *   * Verification: Access server with only Null Cipher and verify connection failure.
- *   * Test: `testNullCipherReject`
- * * **FCS_TLSC_EXT.1.5: Certificate Validation**
- *   * Verification: Access server with expired cert or wrong hostname and verify connection failure and Alert packet.
- *   * Test: `testExpiredHost`, `testInvalidHost`
- * * **FCS_TLSC_EXT.1.6: Session Resumption**
- *   * Verification: Verify session resumption support (SessionTicket extension and multiple Client Hellos).
- *   * Test: `testSessionResumption`
+ * #### FCS_TLSC_EXT.1: Client Protocol
+ * * **FCS_TLSC_EXT.1.1: TLS 1.2/1.3 Support & Legacy Rejection**
+ *   * Verification: Support TLS 1.2/1.3 and abort prior versions.
+ *   * Test: `testTls12Support`, `testTls13Support`, `testTls10Reject`, `testTls11Reject`
+ * * **FCS_TLSC_EXT.1.2: Supported Ciphersuites**
+ *   * Verification: Offer supported ciphersuites in ClientHello (including CNSA).
+ *   * Test: Verified in `analyzePcap` (presence of CNSA ciphers).
+ * * **FCS_TLSC_EXT.1.3: Forbidden Ciphers Rejection**
+ *   * Verification: Do not offer Null, RC4, 3DES, etc.
+ *   * Test: `testNullCipherReject`, `testRc4Reject`, `test3DesReject` (Verifies connection failure when server only supports these).
+ * * **FCS_TLSC_EXT.1.4: Supported & Forbidden Extensions**
+ *   * Verification: Support specific extensions (signature_algorithms, etc.) and NOT send `early_data`.
+ *   * Test: Verified in `analyzePcap` (checks for required extensions and absence of `early_data`).
+ * * **FCS_TLSC_EXT.1.5: Identifier Verification**
+ *   * Verification: Verify server identifier matches reference identifier.
+ *   * Test: `testInvalidHost` (Verifies failure on hostname mismatch).
+ * * **FCS_TLSC_EXT.1.6: Invalid Certificate Rejection**
+ *   * Verification: Reject connections if server certificate is invalid.
+ *   * Test: `testExpiredHost` (Verifies failure on expired certificate).
  *
  * #### FCS_TLSC_EXT.2: Mutual Authentication
  * * **FCS_TLSC_EXT.2.1: Client Certificate Control**
@@ -100,17 +102,24 @@ class FcsTlscExtTest {
     @BeforeClass
     @JvmStatic
     fun setupCheckList() {
-      SFRCheckList.register("FCS_TLSC_EXT.1.1", "Verify TLS 1.2 support")
-      SFRCheckList.register("FCS_TLSC_EXT.1.2", "Verify legacy TLS rejection")
-      SFRCheckList.register("FCS_TLSC_EXT.1.3", "Verify weak cipher rejection")
-      SFRCheckList.register("FCS_TLSC_EXT.1.4", "Verify null cipher rejection")
-      SFRCheckList.register("FCS_TLSC_EXT.1.5", "Verify certificate validation")
-      SFRCheckList.register("FCS_TLSC_EXT.1.6", "Verify session resumption support")
-      SFRCheckList.register("FCS_TLSC_EXT.2.1", "Verify mutual authentication")
-      SFRCheckList.register("FCS_TLSC_EXT.4.1", "Verify secure renegotiation")
-      SFRCheckList.register("FCS_TLSC_EXT.5.1", "Verify session resumption offered")
-      SFRCheckList.register("FCS_TLSC_EXT.6.1", "Verify PSK key exchange modes")
-      SFRCheckList.register("FCS_TLSC_EXT.6.2", "Verify no early data")
+      SFRCheckList.register("FCS_TLSC_EXT.1.1/TLS10", "Verify that connections with TLS 1.0 are not permitted (RFC 5246 / RFC 8446)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.1/TLS11", "Verify that connections with TLS 1.1 are not permitted (RFC 5246 / RFC 8446)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.1/TLS12", "Verify support for TLS 1.2 (RFC 5246)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.1/TLS13", "Verify support for TLS 1.3 (RFC 8446)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.2", "Verify support for required ciphersuites (RFC 5246, RFC 8446)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.2/Android", "Verify support for Android-specific CNSA ciphersuites (RFC 5289, RFC 8422)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.3/NullCipher", "Verify that null ciphers are not permitted (RFC 5246)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.3/RC4", "Verify that RC4 is not permitted (RFC 5246)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.3/3DES", "Verify that 3DES is not permitted (RFC 5246)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.4", "Verify support for required extensions (RFC 8446)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.4/ExtendedMasterSecret", "Verify support for Extended Master Secret (RFC 7627)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.5", "Verify server identifier matches reference identifier (RFC 6125)")
+      SFRCheckList.register("FCS_TLSC_EXT.1.6", "Verify invalid certificate rejection (RFC 5280)")
+      SFRCheckList.register("FCS_TLSC_EXT.2.1", "Verify mutual authentication (RFC 5246, RFC 8446)")
+      SFRCheckList.register("FCS_TLSC_EXT.4.1", "Verify secure renegotiation (RFC 5746)")
+      SFRCheckList.register("FCS_TLSC_EXT.5.1", "Verify session resumption offered (RFC 5077, RFC 8446)")
+      SFRCheckList.register("FCS_TLSC_EXT.6.1", "Verify PSK key exchange modes (RFC 8446)")
+      SFRCheckList.register("FCS_TLSC_EXT.6.2", "Verify no early data (RFC 8446)")
     }
   }
 
@@ -190,17 +199,33 @@ class FcsTlscExtTest {
   }
 
   @Test
-  fun testNormalHost() {
+  fun testTls12Support() {
     val hostName = "https://tls-v1-2.badssl.com:1012/"
-    val resp = tlsCapturePacket("normal", hostName)
+    val resp = tlsCapturePacket("tls12_support", hostName)
     val httpret = resp.httpResponse
-    System.out.println("[JUnit] HTTP response: $httpret")
+    log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
     
     val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
-    SFRCheckList.pass("FCS_TLSC_EXT.1.1")
+    SFRCheckList.pass("FCS_TLSC_EXT.1.1/TLS12")
+  }
+
+  @Test
+  fun testTls13Support() {
+    val hostName = "https://ipv4.google.com/"
+    val resp = tlsCapturePacket("tls13_support", hostName)
+    val httpret = resp.httpResponse
+    log("HTTP response: $httpret")
+
+    errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
+    
+    val pcapPath = resp.pcapPath
+    analyzePcap(pcapPath, expectAlert = false)
+    
+    SFRCheckList.pass("FCS_TLSC_EXT.1.1/TLS13")
   }
 
   @Test
@@ -208,13 +233,14 @@ class FcsTlscExtTest {
     val hostName = "https://tls-v1-0.badssl.com:1010/"
     val resp = tlsCapturePacket("tls10", hostName)
     val httpret = resp.httpResponse
-    println("[JUnit] HTTP response: $httpret")
+log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should not be 200 (rejected)"), httpret == "200", IsEqual(false))
     
     val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
-    SFRCheckList.pass("FCS_TLSC_EXT.1.2")
+    SFRCheckList.pass("FCS_TLSC_EXT.1.1/TLS10")
   }
 
   @Test
@@ -222,13 +248,14 @@ class FcsTlscExtTest {
     val hostName = "https://tls-v1-1.badssl.com:1011/"
     val resp = tlsCapturePacket("tls11", hostName)
     val httpret = resp.httpResponse
-    println("[JUnit] HTTP response: $httpret")
+log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should not be 200 (rejected)"), httpret == "200", IsEqual(false))
     
     val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
-    SFRCheckList.pass("FCS_TLSC_EXT.1.2")
+    SFRCheckList.pass("FCS_TLSC_EXT.1.1/TLS11")
   }
 
   @Test
@@ -236,13 +263,14 @@ class FcsTlscExtTest {
     val hostName = "https://null.badssl.com/"
     val resp = tlsCapturePacket("nullcipher", hostName)
     val httpret = resp.httpResponse
-    println("[JUnit] HTTP response: $httpret")
+log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should not be 200 (rejected)"), httpret == "200", IsEqual(false))
     
     val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
-    SFRCheckList.pass("FCS_TLSC_EXT.1.4")
+    SFRCheckList.pass("FCS_TLSC_EXT.1.3/NullCipher")
   }
 
   @Test
@@ -250,13 +278,14 @@ class FcsTlscExtTest {
     val hostName = "https://3des.badssl.com/"
     val resp = tlsCapturePacket("3des", hostName)
     val httpret = resp.httpResponse
-    println("[JUnit] HTTP response: $httpret")
+log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should not be 200 (rejected)"), httpret == "200", IsEqual(false))
     
     val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
-    SFRCheckList.pass("FCS_TLSC_EXT.1.3")
+    SFRCheckList.pass("FCS_TLSC_EXT.1.3/3DES")
   }
 
   @Test
@@ -264,13 +293,14 @@ class FcsTlscExtTest {
     val hostName = "https://rc4.badssl.com/"
     val resp = tlsCapturePacket("rc4", hostName)
     val httpret = resp.httpResponse
-    println("[JUnit] HTTP response: $httpret")
+log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should not be 200 (rejected)"), httpret == "200", IsEqual(false))
     
     val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false)
     
-    SFRCheckList.pass("FCS_TLSC_EXT.1.3")
+    SFRCheckList.pass("FCS_TLSC_EXT.1.3/RC4")
   }
 
   @Test
@@ -278,13 +308,14 @@ class FcsTlscExtTest {
     val hostName = "https://expired.badssl.com/"
     val resp = tlsCapturePacket("expired", hostName)
     val httpret = resp.httpResponse
-    println("[JUnit] HTTP response: $httpret")
+log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should be 525 or error"), httpret, IsEqual("525"))
     
     val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = true)
     
-    SFRCheckList.pass("FCS_TLSC_EXT.1.5")
+    SFRCheckList.pass("FCS_TLSC_EXT.1.6")
   }
 
   @Test
@@ -292,7 +323,8 @@ class FcsTlscExtTest {
     val hostName = "https://wrong.host.badssl.com/"
     val resp = tlsCapturePacket("invalid", hostName)
     val httpret = resp.httpResponse
-    println("[JUnit] HTTP response: $httpret")
+log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should be 526 or error"), httpret, IsEqual("526"))
     
     val pcapPath = resp.pcapPath
@@ -306,7 +338,8 @@ class FcsTlscExtTest {
     val hostName = "https://tls-v1-2.badssl.com:1012/"
     val resp = tlsCapturePacket("nocert", hostName)
     val httpret = resp.httpResponse
-    println("[JUnit] HTTP response: $httpret")
+log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
     
     val pcapPath = resp.pcapPath
@@ -344,7 +377,8 @@ class FcsTlscExtTest {
 
     val resp = tlsCapturePacket("withcert", hostName, p12Path, p12Pass)
     val httpret = resp.httpResponse
-    println("[JUnit] HTTP response: $httpret")
+log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
     
     val pcapPath = resp.pcapPath
@@ -356,13 +390,12 @@ class FcsTlscExtTest {
     val hostName = "https://tls-v1-2.badssl.com:1012/"
     val resp = tlsCapturePacket("resumption", hostName, resumption = true)
     val httpret = resp.httpResponse
-    println("[JUnit] HTTP response: $httpret")
+log("HTTP response: $httpret")
+
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
     
     val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false, expectResumption = true)
-    
-    SFRCheckList.pass("FCS_TLSC_EXT.1.6")
   }
 
   // NOTE: FCS_TLSC_EXT.3 (Downgrade Protection) requires a custom server that sends
@@ -390,24 +423,31 @@ class FcsTlscExtTest {
           val srcPort = tcp.getSourcePort()
           val dstPort = tcp.getDestinationPort()
           
-          if (targetServerPort != null) {
-              if (expectResumption) {
-                  // For resumption, allow multiple connections to the same server port
-                  if (!(srcPort == targetServerPort || dstPort == targetServerPort)) {
-                      return@loop true
-                  }
-              } else if (targetClientPort != null) {
-                  // Strict session filter for other tests
-                  if (!((srcPort == targetClientPort && dstPort == targetServerPort) ||
-                        (srcPort == targetServerPort && dstPort == targetClientPort))) {
-                      return@loop true
-                  }
+          // Note: Port numbers may be incorrect due to library limitations in parsing IPv6/SLL2.
+          // If ports look crazy, we assume it's an IPv6 packet parsed incorrectly and search the entire payload.
+
+          if (targetClientPort != null && !expectResumption) {
+              // Strict session filter after identifying the session
+              if (!((srcPort == targetClientPort && dstPort == targetServerPort) ||
+                    (srcPort == targetServerPort && dstPort == targetClientPort))) {
+                  return@loop true
               }
           }
           
           val bytes = payload.array
           
+          // Debug: Print packet info
+          log("Packet: src=$srcPort, dst=$dstPort, size=${bytes.size}")
+          if (bytes.size >= 10) {
+              val sb = StringBuilder()
+              for (j in 0 until 10) {
+                  sb.append(String.format("%02X ", bytes[j]))
+              }
+              log("  Payload start: $sb")
+          }
+          
           // Search for TLS Record
+          // Note: The start position may shift due to TCP options being included in the payload by some libraries.
           for (i in 0 until bytes.size - 5) {
             val contentType = bytes[i].toInt() and 0xFF
             val versionMajor = bytes[i+1].toInt() and 0xFF
@@ -423,7 +463,7 @@ class FcsTlscExtTest {
                 if (targetClientPort == null) {
                     targetClientPort = srcPort
                     targetServerPort = dstPort
-                    println("[JUnit] Identified session: Client Port $targetClientPort, Server Port $targetServerPort")
+                    log("Identified session: Client Port $targetClientPort, Server Port $targetServerPort")
                 }
                 
                 // Read version in Client Hello (Handshake version)
@@ -469,10 +509,12 @@ class FcsTlscExtTest {
               
               if (hsType == 0x0b) { // Certificate
                 if (srcPort == targetServerPort) {
-                    println("[JUnit] Found Server Certificate packet!")
+log("Found Server Certificate packet!")
+
                 } else if (srcPort == targetClientPort) {
                     foundClientCert = true
-                    println("[JUnit] Found Client Certificate packet!")
+log("Found Client Certificate packet!")
+
                 }
               }
             }
@@ -480,7 +522,8 @@ class FcsTlscExtTest {
             // Check for Alert (0x15)
             if (contentType == 0x15 && versionMajor == 0x03) {
               foundAlert = true
-              println("[JUnit] Found Alert packet!")
+log("Found Alert packet!")
+
             }
           }
         }
@@ -489,15 +532,27 @@ class FcsTlscExtTest {
     }
 
     Assert.assertTrue("Client Hello not found in capture", foundClientHello)
-    println("[JUnit] Supported Ciphers found: ${supportedCiphers.map { String.format("0x%04X", it) }}")
-    println("[JUnit] Found Extensions: ${foundExtensions.map { String.format("0x%04X", it) }}")
-    println("[JUnit] TLS Version in Client Hello: ${tlsVersion?.let { String.format("0x%04X", it) }}")
+log("Supported Ciphers found: ${supportedCiphers.map { String.format("0x%04X", it) }}")
+
+log("Found Extensions: ${foundExtensions.map { String.format("0x%04X", it) }}")
+
+log("TLS Version in Client Hello: ${tlsVersion?.let { String.format("0x%04X", it) }}")
+
 
     // SFR: FCS_TLSC_EXT.1.2 Ciphersuites
     val requiredCodes = REQUIRED_CIPHERS_IN_SFR.mapNotNull { CIPHER_MAP[it] }
     val matches = supportedCiphers.intersect(requiredCodes)
-    println("[JUnit] Matches with required ciphers: ${matches.map { String.format("0x%04X", it) }}")
+log("Matches with required ciphers: ${matches.map { String.format("0x%04X", it) }}")
+
     Assert.assertTrue("No required ciphers found in Client Hello", matches.isNotEmpty())
+    SFRCheckList.pass("FCS_TLSC_EXT.1.2")
+    
+    // SFR: FCS_TLSC_EXT.1.2 Supported Ciphersuites (Android CNSA)
+    val cnsaCodes = setOf(0xC02C, 0xC030) // ECDSA and RSA with AES-256-GCM
+    val cnsaMatches = supportedCiphers.intersect(cnsaCodes)
+    if (cnsaMatches.isNotEmpty()) {
+        SFRCheckList.pass("FCS_TLSC_EXT.1.2/Android")
+    }
     
     // SFR: FCS_TLSC_EXT.1.3 Forbidden Ciphers (Null, RC4, 3DES)
     val forbiddenCiphers = setOf(
@@ -516,18 +571,26 @@ class FcsTlscExtTest {
     // SFR: FCS_TLSC_EXT.1.4 Required Extensions
     Assert.assertTrue("signature_algorithms extension not found", foundExtensions.contains(0x000D))
     Assert.assertTrue("supported_groups extension not found", foundExtensions.contains(0x000A))
+    SFRCheckList.pass("FCS_TLSC_EXT.1.4")
+
+    // Check for Extended Master Secret (0x0017)
+    Assert.assertTrue("extended_master_secret extension not found", foundExtensions.contains(0x0017))
+    SFRCheckList.pass("FCS_TLSC_EXT.1.4/ExtendedMasterSecret")
 
     // SFR: FCS_TLSC_EXT.4.1 Secure Renegotiation (Test 1.1)
     val hasSCSV = supportedCiphers.contains(0x00FF)
     val hasRenegInfo = foundExtensions.contains(0xFF01)
-    println("[JUnit] Has TLS_EMPTY_RENEGOTIATION_INFO_SCSV: $hasSCSV")
-    println("[JUnit] Has renegotiation_info extension: $hasRenegInfo")
+log("Has TLS_EMPTY_RENEGOTIATION_INFO_SCSV: $hasSCSV")
+
+log("Has renegotiation_info extension: $hasRenegInfo")
+
     Assert.assertTrue("Neither SCSV nor renegotiation_info extension found in Client Hello", hasSCSV || hasRenegInfo)
     SFRCheckList.pass("FCS_TLSC_EXT.4.1")
 
     // SFR: FCS_TLSC_EXT.5.1 Session Resumption (Offered support)
     val hasSessionTicket = foundExtensions.contains(0x0023)
-    println("[JUnit] Has SessionTicket extension: $hasSessionTicket")
+log("Has SessionTicket extension: $hasSessionTicket")
+
     Assert.assertTrue("SessionTicket extension not found in Client Hello", hasSessionTicket)
     SFRCheckList.pass("FCS_TLSC_EXT.5.1")
 
@@ -552,7 +615,8 @@ class FcsTlscExtTest {
 
     if (expectResumption) {
       Assert.assertTrue("Expected at least 2 Client Hellos for resumption", clientHelloCount >= 2)
-      println("[JUnit] Found $clientHelloCount Client Hellos, confirmed resumption attempt!")
+log("Found $clientHelloCount Client Hellos, confirmed resumption attempt!")
+
     }
   }
 
@@ -572,13 +636,16 @@ class FcsTlscExtTest {
 
       val tcpdumpJob = launch(Dispatchers.IO) {
           try {
-              println("[JUnit] Starting tcpdump in coroutine...")
+log("Starting tcpdump in coroutine...")
+
               // Clean up old capture file to avoid analyzing stale data if the current run fails
               client.execute(ShellCommandRequest("su 0 rm -f /data/local/tmp/traffic.pcap"), serial)
               client.execute(ShellCommandRequest("su 0 tcpdump -i any -U -w /data/local/tmp/traffic.pcap"), serial)
-              println("[JUnit] tcpdump coroutine finished")
+log("tcpdump coroutine finished")
+
           } catch (e: Exception) {
-              println("[JUnit] tcpdump coroutine exception: ${e.message}")
+log("tcpdump coroutine exception: ${e.message}")
+
           }
       }
       Thread.sleep(2000) // Give tcpdump time to start
@@ -586,7 +653,8 @@ class FcsTlscExtTest {
       client.execute(ShellCommandRequest("am force-stop com.example.openurl"), serial)
       Thread.sleep(500)
       
-      println("[JUnit] Launching app with URL: $testurl")
+log("Launching app with URL: $testurl")
+
       var cmd = "am start -a android.intent.action.VIEW -n com.example.openurl/.MainActivity -e openurl $testurl"
       if (!p12Path.isNullOrBlank()) {
           cmd += " -e p12path $p12Path"
@@ -602,7 +670,8 @@ class FcsTlscExtTest {
       // Wait worker response on logcat and get return code from that
       val res: AdamUtils.LogcatResult? = AdamUtils.waitLogcatLine(100, "worker@return", adb)
       if (res != null) {
-        println("[JUnit] worker@return => ${res.text}")
+log("worker@return => ${res.text}")
+
         val text = res.text
         val marker = "worker@return:"
         val index = text.lastIndexOf(marker)
@@ -612,7 +681,8 @@ class FcsTlscExtTest {
           httpResp = text.trim()
         }
       } else {
-        println("[JUnit] we can't grab the return value from worker.")
+log("we can't grab the return value from worker.")
+
         httpResp = "Error: timeout waiting for logcat"
       }
 

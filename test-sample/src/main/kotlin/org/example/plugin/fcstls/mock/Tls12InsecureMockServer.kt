@@ -38,6 +38,15 @@ class Tls12InsecureMockServer(private val port: Int) {
     @Volatile var lastClientReaction: ClientReaction = ClientReaction.NONE
         private set
 
+    private val serverCertBytes: ByteArray by lazy {
+        val certFile = java.io.File(org.example.project.JUnitBridge.resourceDir, "wildcard-rsa2048.crt")
+        val cf = java.security.cert.CertificateFactory.getInstance("X.509")
+        java.io.FileInputStream(certFile).use { fis ->
+            val cert = cf.generateCertificate(fis) as java.security.cert.X509Certificate
+            cert.encoded
+        }
+    }
+
     enum class ClientReaction {
         NONE,
         FATAL_ALERT,
@@ -45,13 +54,15 @@ class Tls12InsecureMockServer(private val port: Int) {
         CONNECTION_CLOSED,
         TIMEOUT
     }
-
+    
     companion object {
         private const val RECORD_HANDSHAKE: Byte = 0x16
         private const val RECORD_ALERT: Byte = 0x15
-
+        
         private const val HS_CLIENT_HELLO: Byte = 0x01
         private const val HS_SERVER_HELLO: Byte = 0x02
+        private const val HS_CERTIFICATE: Byte = 0x0b
+        private const val HS_SERVER_HELLO_DONE: Byte = 0x0e
 
         private val FALLBACK_CIPHER_SUITE = byteArrayOf(0xC0.toByte(), 0x2F)
 
@@ -101,8 +112,17 @@ class Tls12InsecureMockServer(private val port: Int) {
 
             val sh = buildServerHelloRecord(ch)
             dout.write(sh)
+            
+            // Send Certificate
+            val certRecord = buildCertificateRecord()
+            dout.write(certRecord)
+            
+            // Send ServerHelloDone
+            val shdRecord = buildServerHelloDoneRecord()
+            dout.write(shdRecord)
+            
             dout.flush()
-            logw("[Tls12InsecureMockServer] Sent TLS 1.2 ServerHello without renegotiation_info")
+            logw("[Tls12InsecureMockServer] Sent TLS 1.2 ServerHello, Cert, SHDone without renegotiation_info")
 
             lastClientReaction = observeClientReaction(din)
             logi("[Tls12InsecureMockServer] Client reaction: $lastClientReaction")
@@ -111,6 +131,59 @@ class Tls12InsecureMockServer(private val port: Int) {
         } finally {
             try { socket.close() } catch (_: Exception) {}
         }
+    }
+
+    private fun buildCertificateRecord(): ByteArray {
+        val certBytes = serverCertBytes
+        val body = ByteArrayOutputStream().apply {
+            // Certificate List Length (3 bytes)
+            val listLen = certBytes.size + 3
+            write((listLen ushr 16) and 0xFF)
+            write((listLen ushr 8) and 0xFF)
+            write(listLen and 0xFF)
+            
+            // Certificate Length (3 bytes)
+            val cLen = certBytes.size
+            write((cLen ushr 16) and 0xFF)
+            write((cLen ushr 8) and 0xFF)
+            write(cLen and 0xFF)
+            
+            // Certificate Data
+            write(certBytes)
+        }.toByteArray()
+
+        val handshake = ByteArrayOutputStream().apply {
+            write(HS_CERTIFICATE.toInt())
+            write((body.size ushr 16) and 0xFF)
+            write((body.size ushr 8) and 0xFF)
+            write(body.size and 0xFF)
+            write(body)
+        }.toByteArray()
+
+        return ByteArrayOutputStream().apply {
+            write(RECORD_HANDSHAKE.toInt())
+            write(byteArrayOf(0x03, 0x03))           // record version
+            write((handshake.size ushr 8) and 0xFF)
+            write(handshake.size and 0xFF)
+            write(handshake)
+        }.toByteArray()
+    }
+
+    private fun buildServerHelloDoneRecord(): ByteArray {
+        val handshake = ByteArrayOutputStream().apply {
+            write(HS_SERVER_HELLO_DONE.toInt())
+            write(0)
+            write(0)
+            write(0)
+        }.toByteArray()
+
+        return ByteArrayOutputStream().apply {
+            write(RECORD_HANDSHAKE.toInt())
+            write(byteArrayOf(0x03, 0x03))           // record version
+            write((handshake.size ushr 8) and 0xFF)
+            write(handshake.size and 0xFF)
+            write(handshake)
+        }.toByteArray()
     }
 
     private data class ClientHello(
@@ -153,8 +226,7 @@ class Tls12InsecureMockServer(private val port: Int) {
         val body = ByteArrayOutputStream().apply {
             write(byteArrayOf(0x03, 0x03))           // legacy_version = TLS 1.2
             write(random)
-            write(ch.sessionId.size)
-            write(ch.sessionId)
+            write(0) // Empty session ID to avoid 'SERVER_ECHOED_INVALID_SESSION_ID'
             write(suite)
             write(0x00)                               // compression_method = null
             write(byteArrayOf(0x00, 0x00))           // extensions length = 0 (No secure renegotiation)
