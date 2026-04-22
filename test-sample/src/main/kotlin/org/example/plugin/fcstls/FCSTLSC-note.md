@@ -109,6 +109,10 @@ These tests actively simulate malicious or non-compliant server behavior to veri
 * **Concern:** In `FcsTlscExt4RenegotiationTest`, the mock server sends a certificate to proceed with the handshake. However, BoringSSL rejects it with `WRONG_CERTIFICATE_TYPE` because the certificate is not fully trusted or suitable as a server certificate in its view.
 * **Impact:** The test passes because the connection fails (as expected), but the failure is triggered by the certificate check rather than the missing secure renegotiation extension. Strict isolation requires a valid certificate chain recognized by BoringSSL.
 
+**4.3 Identifier Verification Type Limitation**
+* **Concern:** `FCS_TLSC_EXT.1.5` requires the TSF to verify presented identifiers of specific name types (like `dNSName`, `IPAddress`, `URI`). Currently, we only verify `dNSName` (hostname) using `badssl.com` endpoints.
+* **Impact:** Verification of other identifier types like `IPAddress` or `uniformResourceIdentifier` is not covered by the current test suite. Testing these would require a custom mock server with certificates containing these specific SAN types, and those certificates would need to be trusted by the device (requiring CA installation).
+
 ### **V. Next Steps and Reference Repositories**
 
 With the core TLS functional package requirements verified, the next steps include:
