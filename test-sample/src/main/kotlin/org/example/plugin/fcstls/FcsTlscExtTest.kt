@@ -530,10 +530,14 @@ log("HTTP response: $httpret")
               val extDataLen = ((bytes[extCurrent+2].toInt() and 0xFF) shl 8) or (bytes[extCurrent+3].toInt() and 0xFF)
               foundExtensions.add(extType)
 
+              // Extension data layout: [type(2)] [ext_len(2)] [vector_len(2)] [vector...]
+              // vector ends at extCurrent + 4 + 2 + vector_len = extCurrent + 6 + vector_len.
+              // (The historical bound `extCurrent + 4 + vector_len` was off-by-2 and silently
+              // dropped the final entry of supported_groups / signature_algorithms.)
               if (extType == 0x000D && extCurrent + 4 + extDataLen <= bytes.size) {
                 val sigAlgsLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
                 var sigOffset = extCurrent + 6
-                while (sigOffset + 2 <= extCurrent + 4 + sigAlgsLen && sigOffset + 2 <= bytes.size) {
+                while (sigOffset + 2 <= extCurrent + 6 + sigAlgsLen && sigOffset + 2 <= bytes.size) {
                   val sigAlg = ((bytes[sigOffset].toInt() and 0xFF) shl 8) or (bytes[sigOffset+1].toInt() and 0xFF)
                   foundSigAlgs.add(sigAlg)
                   sigOffset += 2
@@ -542,7 +546,7 @@ log("HTTP response: $httpret")
               if (extType == 0x000A && extCurrent + 4 + extDataLen <= bytes.size) {
                 val groupsLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
                 var grpOffset = extCurrent + 6
-                while (grpOffset + 2 <= extCurrent + 4 + groupsLen && grpOffset + 2 <= bytes.size) {
+                while (grpOffset + 2 <= extCurrent + 6 + groupsLen && grpOffset + 2 <= bytes.size) {
                   val grp = ((bytes[grpOffset].toInt() and 0xFF) shl 8) or (bytes[grpOffset+1].toInt() and 0xFF)
                   foundGroups.add(grp)
                   grpOffset += 2
@@ -551,16 +555,18 @@ log("HTTP response: $httpret")
               if (extType == 0x0032 && extCurrent + 4 + extDataLen <= bytes.size) {
                 val sigAlgsCertLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
                 var sigCertOffset = extCurrent + 6
-                while (sigCertOffset + 2 <= extCurrent + 4 + sigAlgsCertLen && sigCertOffset + 2 <= bytes.size) {
+                while (sigCertOffset + 2 <= extCurrent + 6 + sigAlgsCertLen && sigCertOffset + 2 <= bytes.size) {
                   val sigAlgCert = ((bytes[sigCertOffset].toInt() and 0xFF) shl 8) or (bytes[sigCertOffset+1].toInt() and 0xFF)
                   foundSigAlgsCert.add(sigAlgCert)
                   sigCertOffset += 2
                 }
               }
               if (extType == 0x002B && extCurrent + 4 + extDataLen <= bytes.size) {
+                // supported_versions uses a 1-byte length prefix; vector ends at
+                // extCurrent + 4 + 1 + versionsLen = extCurrent + 5 + versionsLen.
                 val versionsLen = bytes[extCurrent+4].toInt() and 0xFF
                 var verOffset = extCurrent + 5
-                while (verOffset + 2 <= extCurrent + 4 + versionsLen && verOffset + 2 <= bytes.size) {
+                while (verOffset + 2 <= extCurrent + 5 + versionsLen && verOffset + 2 <= bytes.size) {
                   val ver = ((bytes[verOffset].toInt() and 0xFF) shl 8) or (bytes[verOffset+1].toInt() and 0xFF)
                   if (ver == 0x0304) tlsVersion = 0x0304
                   verOffset += 2
