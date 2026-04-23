@@ -423,6 +423,14 @@ log("HTTP response: $httpret")
     var targetClientPort: Int? = null
     var targetServerPort: Int? = null
 
+    // Pass 1: accumulate TCP payloads per (srcPort, dstPort) flow so that TLS records
+    // that span multiple TCP segments can be parsed as a single buffer. We concatenate
+    // in capture order which is equivalent to SEQ order on a healthy capture with no
+    // loss/reordering (tcpdump on-device typically satisfies this).
+    data class FlowKey(val src: Int, val dst: Int)
+    val flowBufs = mutableMapOf<FlowKey, java.io.ByteArrayOutputStream>()
+    val packetLog = mutableListOf<Triple<Int, Int, Int>>() // src, dst, size
+
     pcap.loop { packet ->
       if (packet.hasProtocol(Protocol.TCP)) {
         val tcp = packet.getPacket(Protocol.TCP) as TCPPacket
@@ -430,164 +438,164 @@ log("HTTP response: $httpret")
         if (payload != null) {
           val srcPort = tcp.getSourcePort()
           val dstPort = tcp.getDestinationPort()
-          
-          // Note: Port numbers may be incorrect due to library limitations in parsing IPv6/SLL2.
-          // If ports look crazy, we assume it's an IPv6 packet parsed incorrectly and search the entire payload.
-
-          if (targetClientPort != null && !expectResumption) {
-              // Strict session filter after identifying the session
-              if (!((srcPort == targetClientPort && dstPort == targetServerPort) ||
-                    (srcPort == targetServerPort && dstPort == targetClientPort))) {
-                  return@loop true
-              }
-          }
-          
           val bytes = payload.array
-          
-          // Debug: Print packet info
-          log("Packet: src=$srcPort, dst=$dstPort, size=${bytes.size}")
-          if (bytes.size >= 10) {
-              val sb = StringBuilder()
-              for (j in 0 until 10) {
-                  sb.append(String.format("%02X ", bytes[j]))
-              }
-              log("  Payload start: $sb")
-          }
-          
-          // Search for TLS Record
-          // Note: The start position may shift due to TCP options being included in the payload by some libraries.
-          for (i in 0 until bytes.size - 5) {
-            val contentType = bytes[i].toInt() and 0xFF
-            val versionMajor = bytes[i+1].toInt() and 0xFF
-            val versionMinor = bytes[i+2].toInt() and 0xFF
-            
-            // Check for Handshake (0x16)
-            if (contentType == 0x16 && versionMajor == 0x03) {
-              val hsType = bytes[i+5].toInt() and 0xFF
-              if (hsType == 0x01) { // Client Hello
-                foundClientHello = true
-                clientHelloCount++
-                
-                if (targetClientPort == null) {
-                    targetClientPort = srcPort
-                    targetServerPort = dstPort
-                    log("Identified session: Client Port $targetClientPort, Server Port $targetServerPort")
-                }
-                
-                // Read version in Client Hello (Handshake version)
-                tlsVersion = ((bytes[i+9].toInt() and 0xFF) shl 8) or (bytes[i+10].toInt() and 0xFF)
-                
-                // Parse ciphers
-                val sessionIdLen = bytes[i+43].toInt() and 0xFF
-                val current = i + 44 + sessionIdLen
-                if (current + 2 <= bytes.size) {
-                  val cipherSuitesLen = ((bytes[current].toInt() and 0xFF) shl 8) or (bytes[current+1].toInt() and 0xFF)
-                  var csOffset = current + 2
-                  for (j in 0 until cipherSuitesLen step 2) {
-                    if (csOffset + 2 <= bytes.size) {
-                      val cs = ((bytes[csOffset].toInt() and 0xFF) shl 8) or (bytes[csOffset+1].toInt() and 0xFF)
-                      supportedCiphers.add(cs)
-                      csOffset += 2
-                    }
-                  }
-                  
-                  // Parse Compression Methods
-                  val compOffset = csOffset
-                  if (compOffset + 1 <= bytes.size) {
-                    val compLen = bytes[compOffset].toInt() and 0xFF
-                    val extOffset = compOffset + 1 + compLen
-                    
-                    // Parse Extensions
-                    if (extOffset + 2 <= bytes.size) {
-                      val extLen = ((bytes[extOffset].toInt() and 0xFF) shl 8) or (bytes[extOffset+1].toInt() and 0xFF)
-                      var extCurrent = extOffset + 2
-                      val extEnd = extCurrent + extLen
-                      
-                      while (extCurrent + 4 <= extEnd && extCurrent + 4 <= bytes.size) {
-                        val extType = ((bytes[extCurrent].toInt() and 0xFF) shl 8) or (bytes[extCurrent+1].toInt() and 0xFF)
-                        val extDataLen = ((bytes[extCurrent+2].toInt() and 0xFF) shl 8) or (bytes[extCurrent+3].toInt() and 0xFF)
-                        
-                        foundExtensions.add(extType)
-                        
-                        if (extType == 0x000D && extCurrent + 4 + extDataLen <= bytes.size) {
-                          if (extCurrent + 6 <= bytes.size) {
-                            val sigAlgsLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
-                            var sigOffset = extCurrent + 6
-                            while (sigOffset + 2 <= extCurrent + 4 + sigAlgsLen && sigOffset + 2 <= bytes.size) {
-                              val sigAlg = ((bytes[sigOffset].toInt() and 0xFF) shl 8) or (bytes[sigOffset+1].toInt() and 0xFF)
-                              foundSigAlgs.add(sigAlg)
-                              sigOffset += 2
-                            }
-                          }
-                        }
-                        
-                        if (extType == 0x000A && extCurrent + 4 + extDataLen <= bytes.size) {
-                          if (extCurrent + 6 <= bytes.size) {
-                            val groupsLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
-                            var grpOffset = extCurrent + 6
-                            while (grpOffset + 2 <= extCurrent + 4 + groupsLen && grpOffset + 2 <= bytes.size) {
-                              val grp = ((bytes[grpOffset].toInt() and 0xFF) shl 8) or (bytes[grpOffset+1].toInt() and 0xFF)
-                              foundGroups.add(grp)
-                              grpOffset += 2
-                            }
-                          }
-                        }
-                        
-                        if (extType == 0x0032 && extCurrent + 4 + extDataLen <= bytes.size) {
-                          if (extCurrent + 6 <= bytes.size) {
-                            val sigAlgsCertLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
-                            var sigCertOffset = extCurrent + 6
-                            while (sigCertOffset + 2 <= extCurrent + 4 + sigAlgsCertLen && sigCertOffset + 2 <= bytes.size) {
-                              val sigAlgCert = ((bytes[sigCertOffset].toInt() and 0xFF) shl 8) or (bytes[sigCertOffset+1].toInt() and 0xFF)
-                              foundSigAlgsCert.add(sigAlgCert)
-                              sigCertOffset += 2
-                            }
-                          }
-                        }
-                        
-                        if (extType == 0x002B && extCurrent + 4 + extDataLen <= bytes.size) {
-                          if (extCurrent + 5 <= bytes.size) {
-                            val versionsLen = bytes[extCurrent+4].toInt() and 0xFF
-                            var verOffset = extCurrent + 5
-                            while (verOffset + 2 <= extCurrent + 4 + versionsLen && verOffset + 2 <= bytes.size) {
-                              val ver = ((bytes[verOffset].toInt() and 0xFF) shl 8) or (bytes[verOffset+1].toInt() and 0xFF)
-                              if (ver == 0x0304) {
-                                tlsVersion = 0x0304
-                              }
-                              verOffset += 2
-                            }
-                          }
-                        }
-                        
-                        extCurrent += 4 + extDataLen
-                      }
-                    }
-                  }
-                }
-              }
-              
-              if (hsType == 0x0b) { // Certificate
-                if (srcPort == targetServerPort) {
-log("Found Server Certificate packet!")
+          packetLog.add(Triple(srcPort, dstPort, bytes.size))
+          flowBufs.getOrPut(FlowKey(srcPort, dstPort)) { java.io.ByteArrayOutputStream() }.write(bytes)
+        }
+      }
+      true
+    }
 
-                } else if (srcPort == targetClientPort) {
-                    foundClientCert = true
-log("Found Client Certificate packet!")
+    // Log packet ordering up to a reasonable cap so we keep the debug detail that the
+    // previous implementation emitted.
+    for ((src, dst, size) in packetLog.take(8)) {
+      log("Packet: src=$src, dst=$dst, size=$size")
+    }
 
-                }
-              }
+    // Identify the flow containing ClientHello: scan each client→server flow for 0x16 0x03 0xMM
+    // immediately followed by 0x01 (Handshake / ClientHello). We pick the first flow where the
+    // TLS record length fits the reassembled buffer (so we have the *full* ClientHello).
+    fun findClientHelloFlow(): Pair<FlowKey, Int>? {
+      for ((key, baos) in flowBufs) {
+        val b = baos.toByteArray()
+        var i = 0
+        while (i + 9 <= b.size) {
+          if ((b[i].toInt() and 0xFF) == 0x16 && (b[i+1].toInt() and 0xFF) == 0x03 &&
+              (b[i+5].toInt() and 0xFF) == 0x01) {
+            val recLen = ((b[i+3].toInt() and 0xFF) shl 8) or (b[i+4].toInt() and 0xFF)
+            if (i + 5 + recLen <= b.size) {
+              return key to i
             }
-            
-            // Check for Alert (0x15)
-            if (contentType == 0x15 && versionMajor == 0x03) {
-              foundAlert = true
-log("Found Alert packet!")
+          }
+          i++
+        }
+      }
+      return null
+    }
 
+    val hit = findClientHelloFlow()
+    if (hit != null) {
+      val (key, recStart) = hit
+      targetClientPort = key.src
+      targetServerPort = key.dst
+      log("Identified session: Client Port $targetClientPort, Server Port $targetServerPort")
+
+      val bytes = flowBufs[key]!!.toByteArray()
+      foundClientHello = true
+      clientHelloCount = 1
+
+      // Count additional ClientHellos in the same flow (for resumption test).
+      run {
+        var p = recStart + 1
+        while (p + 9 <= bytes.size) {
+          if ((bytes[p].toInt() and 0xFF) == 0x16 && (bytes[p+1].toInt() and 0xFF) == 0x03 &&
+              (bytes[p+5].toInt() and 0xFF) == 0x01) {
+            clientHelloCount++
+            p += 6
+          } else p++
+        }
+      }
+
+      val i = recStart
+      val sb = StringBuilder()
+      for (j in 0 until minOf(10, bytes.size - i)) sb.append(String.format("%02X ", bytes[i+j]))
+      log("  ClientHello record start: $sb")
+
+      tlsVersion = ((bytes[i+9].toInt() and 0xFF) shl 8) or (bytes[i+10].toInt() and 0xFF)
+
+      val sessionIdLen = bytes[i+43].toInt() and 0xFF
+      val current = i + 44 + sessionIdLen
+      if (current + 2 <= bytes.size) {
+        val cipherSuitesLen = ((bytes[current].toInt() and 0xFF) shl 8) or (bytes[current+1].toInt() and 0xFF)
+        var csOffset = current + 2
+        for (j in 0 until cipherSuitesLen step 2) {
+          if (csOffset + 2 <= bytes.size) {
+            val cs = ((bytes[csOffset].toInt() and 0xFF) shl 8) or (bytes[csOffset+1].toInt() and 0xFF)
+            supportedCiphers.add(cs)
+            csOffset += 2
+          }
+        }
+
+        val compOffset = csOffset
+        if (compOffset + 1 <= bytes.size) {
+          val compLen = bytes[compOffset].toInt() and 0xFF
+          val extOffset = compOffset + 1 + compLen
+          if (extOffset + 2 <= bytes.size) {
+            val extLen = ((bytes[extOffset].toInt() and 0xFF) shl 8) or (bytes[extOffset+1].toInt() and 0xFF)
+            var extCurrent = extOffset + 2
+            val extEnd = extCurrent + extLen
+
+            while (extCurrent + 4 <= extEnd && extCurrent + 4 <= bytes.size) {
+              val extType = ((bytes[extCurrent].toInt() and 0xFF) shl 8) or (bytes[extCurrent+1].toInt() and 0xFF)
+              val extDataLen = ((bytes[extCurrent+2].toInt() and 0xFF) shl 8) or (bytes[extCurrent+3].toInt() and 0xFF)
+              foundExtensions.add(extType)
+
+              if (extType == 0x000D && extCurrent + 4 + extDataLen <= bytes.size) {
+                val sigAlgsLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
+                var sigOffset = extCurrent + 6
+                while (sigOffset + 2 <= extCurrent + 4 + sigAlgsLen && sigOffset + 2 <= bytes.size) {
+                  val sigAlg = ((bytes[sigOffset].toInt() and 0xFF) shl 8) or (bytes[sigOffset+1].toInt() and 0xFF)
+                  foundSigAlgs.add(sigAlg)
+                  sigOffset += 2
+                }
+              }
+              if (extType == 0x000A && extCurrent + 4 + extDataLen <= bytes.size) {
+                val groupsLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
+                var grpOffset = extCurrent + 6
+                while (grpOffset + 2 <= extCurrent + 4 + groupsLen && grpOffset + 2 <= bytes.size) {
+                  val grp = ((bytes[grpOffset].toInt() and 0xFF) shl 8) or (bytes[grpOffset+1].toInt() and 0xFF)
+                  foundGroups.add(grp)
+                  grpOffset += 2
+                }
+              }
+              if (extType == 0x0032 && extCurrent + 4 + extDataLen <= bytes.size) {
+                val sigAlgsCertLen = ((bytes[extCurrent+4].toInt() and 0xFF) shl 8) or (bytes[extCurrent+5].toInt() and 0xFF)
+                var sigCertOffset = extCurrent + 6
+                while (sigCertOffset + 2 <= extCurrent + 4 + sigAlgsCertLen && sigCertOffset + 2 <= bytes.size) {
+                  val sigAlgCert = ((bytes[sigCertOffset].toInt() and 0xFF) shl 8) or (bytes[sigCertOffset+1].toInt() and 0xFF)
+                  foundSigAlgsCert.add(sigAlgCert)
+                  sigCertOffset += 2
+                }
+              }
+              if (extType == 0x002B && extCurrent + 4 + extDataLen <= bytes.size) {
+                val versionsLen = bytes[extCurrent+4].toInt() and 0xFF
+                var verOffset = extCurrent + 5
+                while (verOffset + 2 <= extCurrent + 4 + versionsLen && verOffset + 2 <= bytes.size) {
+                  val ver = ((bytes[verOffset].toInt() and 0xFF) shl 8) or (bytes[verOffset+1].toInt() and 0xFF)
+                  if (ver == 0x0304) tlsVersion = 0x0304
+                  verOffset += 2
+                }
+              }
+              extCurrent += 4 + extDataLen
             }
           }
         }
       }
-      true // Continue loop
+    }
+
+    // Alert / Certificate scan across all flows (also reassembled).
+    for ((key, baos) in flowBufs) {
+      val b = baos.toByteArray()
+      var p = 0
+      while (p + 5 <= b.size) {
+        val ct = b[p].toInt() and 0xFF
+        val vmaj = b[p+1].toInt() and 0xFF
+        if (ct == 0x15 && vmaj == 0x03) {
+          foundAlert = true
+        }
+        if (ct == 0x16 && vmaj == 0x03 && p + 6 <= b.size) {
+          val hsType = b[p+5].toInt() and 0xFF
+          if (hsType == 0x0b) { // Certificate
+            if (key.src == targetServerPort) {
+              log("Found Server Certificate packet!")
+            } else if (key.src == targetClientPort) {
+              foundClientCert = true
+              log("Found Client Certificate packet!")
+            }
+          }
+        }
+        p++
+      }
     }
 
     Assert.assertTrue("Client Hello not found in capture", foundClientHello)
