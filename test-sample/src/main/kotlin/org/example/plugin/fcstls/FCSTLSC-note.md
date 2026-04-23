@@ -155,10 +155,31 @@ These tests actively simulate malicious or non-compliant server behavior to veri
 * **Concern:** In `FcsTlscExt4RenegotiationTest`, the mock server sends a certificate to proceed with the handshake. However, BoringSSL rejects it with `WRONG_CERTIFICATE_TYPE` because the certificate is not fully trusted or suitable as a server certificate in its view.
 * **Impact:** The test passes because the connection fails (as expected), but the failure is triggered by the certificate check rather than the missing secure renegotiation extension. Strict isolation requires a valid certificate chain recognized by BoringSSL.
 
-**4.3 Identifier Verification Type Limitation**
-* **Concern:** `FCS_TLSC_EXT.1.5` requires the TSF to verify presented identifiers of specific name types (like `dNSName`, `IPAddress`, `URI`). Currently, we only verify `dNSName` (hostname) using `badssl.com` endpoints because public CAs do not typically issue certs with IP or URI SANs.
-* **Impact:** Verification of other identifier types like `IPAddress` or `uniformResourceIdentifier` is not covered by the current test suite.
-* **Proposed Solution:** To test these types, we can generate a private CA and certificates with IP/URI SANs locally. The test app (`openurl`) can be configured to trust this private CA via Android's `Network Security Config` (without trusting it system-wide), allowing the mock server to verify these specific identifier types.
+**4.3 Identifier Verification Type Limitation (Gap with ST/PP Claims)**
+* **Concern:** `FCS_TLSC_EXT.1.5` requires the TSF to verify presented identifiers of specific name types (e.g., `dNSName`, `uniformResourceIdentifier`, `SRVname`, `IPAddress`). The Security Target (ST) applicable to this TOE appears to claim support for a broad set of these types. However, there is a fundamental gap between the ST claims and the reachability via standard Android APIs.
+* **The Gap:** The evaluation scope in this testbed is focused on "Standard internet clients (e.g., Chrome/OkHttp3) targeting HttpURLConnection, OkHttp3 APIs". These APIs only compare reference identifiers against `dNSName` and `IPAddress`. Consequently, other name types like `uniformResourceIdentifier`, `SRVname`, `directoryName`, and `rfc822Name` cannot be exercised through these standard HTTPS client interfaces.
+* **Reason for the Gap:** This limitation is rooted in **RFC 2818 §3.1 "Server Identity"** (the HTTPS-specific spec), which mandates `dNSName` and `iPAddress` for identity matching. While RFC 6125 provides a general framework for other name types (like URI-ID or SRV-ID), HTTPS has never adopted them. Therefore, standard Android HTTPS clients do not implement matching for these extended types.
+* **Evidence Strategy for the Gap:** Since this testbed cannot drive the unreachable name types at runtime, compliance must be demonstrated through alternative evidence channels:
+  * **Primary Evidence:** Vendor ATE results and TSF design documentation that point to the internal code paths (e.g., in Conscrypt/BoringSSL or specific enterprise components) capable of matching these types.
+  * **Supporting Evidence:** Source code references in AOSP (e.g., `OkHostnameVerifier.java` walking only SAN type 2 and 7) to document the scope boundary of the HTTPS APIs.
+* **Runtime Coverage in this Testbed:** This testbed covers the two name types reachable through standard HTTPS APIs: `dNSName` and `IPAddress` (using the custom CA infrastructure detailed in the work plan `FCSTLSC-plan-4.2-4.3.md`). Other claimed types are treated as documented gaps to be covered by vendor evidence.
+
+**4.4 Supported Groups Limitation (Missing secp384r1)**
+* **Concern:** The Security Target (ST) for Google and Samsung TOEs requires the TSF to present the `Supported Groups` extension with `secp256r1` and `secp384r1`. However, current observation shows that Conscrypt offers `x25519` and `secp256r1`, missing `secp384r1`.
+* **Impact:** The current test passes because it uses an `OR` condition (checking for either group), but it strictly fails to meet the ST's specific list requirement.
+* **Proposed Solution:** Investigate if `secp384r1` can be explicitly enabled in the client application (`openurl`) or if the ST can be revised to match the actual Conscrypt default behavior.
+* **Experiment Results (2026-04-23):** Attempted to force `secp384r1` by calling `SSLParameters.setNamedGroups` via reflection in the `openurl` app.
+  * **Result:** The `Supported Groups` list changed and included an unknown code `0x11EC` (also observed in Chrome) and a GREASE code, but `secp384r1` was still not sent.
+  * **Side Effect:** Other required extensions like `psk_key_exchange_modes` (0x002D) disappeared from the `ClientHello`, causing test failures.
+  * **Conclusion:** Simple `SSLParameters` manipulation is insufficient and introduces instability. Alternative approaches are needed.
+  * **Further Experiment (2026-04-23):** Attempted to use `SSLContext.getInstance("TLS", "Conscrypt")` and set both `setNamedGroups` and `setSignatureSchemes` via reflection.
+    * **Result:** Almost all extensions disappeared from the `ClientHello` except for `key_share` (0x0033) and a GREASE code (0x7A7A).
+    * **Conclusion:** Conscrypt in Android is highly sensitive to Java-layer `SSLParameters` manipulation. Overriding specific parameters causes it to drop other default extensions. This approach is not viable without deeper knowledge of Conscrypt's internal state management.
+
+**4.5 Session Resumption Dynamic Verification Deficit**
+* **Concern:** `FCS_TLSC_EXT.5.1` requires support for session resumption. While we verify the presence of `session_ticket` and `psk_key_exchange_modes` extensions in `ClientHello` (static capability), we do not actively verify that a session is successfully resumed (dynamic behavior).
+* **Impact:** The test suite demonstrates capability but stops short of proving end-to-end execution of abbreviated handshakes.
+* **Proposed Solution:** Implement a two-step connection test against a local mock server to verify that a session ticket issued in the first connection is successfully used to resume the session in the second connection.
 
 ### **V. Current Verification Status**
 
@@ -167,7 +188,7 @@ Based on the specific requirements and recent strictness improvements, we have i
 2.  **Verified** specific values in `signature_algorithms` and `supported_groups` extensions, ensuring compliance with spec selections (mapped to `FCS_TLSC_EXT.1.4`).
 3.  **Verified** the absence of `early_data` extension in `ClientHello` for TLS 1.3 (mapped to `FCS_TLSC_EXT.6.2`).
 4.  **Identified** that Conscrypt offers extensions and ciphers not explicitly in the spec's allowed list (logged as warnings).
-5.  **Documented Limitation for 1.5:** Verification of `IPAddress` and `URI` identifier types is not covered due to lack of public test servers. A local CA solution is proposed in Section 4.3.
+5.  **Documented Gap for 1.5:** Verification of `IPAddress` is covered by the local CA infrastructure. Other types like `URI` and `SRVname` are treated as unreachable gaps in HTTPS scope, to be covered by vendor evidence (see Section 4.3).
 6.  **Documented Limitation for 4.1:** Renegotiation test passes but fails due to certificate type mismatch in BoringSSL, not strictly isolating renegotiation rejection.
 
 ### **VI. Next Steps and Reference Repositories**
