@@ -52,20 +52,65 @@ These tests verify the TOE's passive behavior when connecting to endpoints with 
   * `testTls12Support` / `testTls13Support`: Confirms successful connection using TLS 1.2 and TLS 1.3 respectively.  
   * `testTls10Reject` / `testTls11Reject`: Verifies that connection attempts fail when the target server *only* supports legacy protocols (TLS 1.0/1.1).  
 * **FCS\_TLSC\_EXT.1.2 (Supported Ciphersuites):**  
-  * Verified in `analyzePcap` by checking for the presence of required ciphersuites in `ClientHello`:
-    * `TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256` (`0xC02B`)
-    * `TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384` (`0xC02C`)
-    * `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` (`0xC02F`)
-    * `TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384` (`0xC030`)
+    * **CNSA 1.0 Compliant (TLS 1.2):**
+      * `TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384` (`0xC02C`)
+      * `TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384` (`0xC030`)
+      * `TLS_DHE_RSA_WITH_AES_256_GCM_SHA384` (`0x009F`)
+      * `TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384` (`0xC024`)
+      * `TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384` (`0xC028`)
+      * `TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384` (`0xD003`)
+      * `TLS_DHE_PSK_WITH_AES_256_GCM_SHA384` (`0x00AA`)
+      * `TLS_RSA_PSK_WITH_AES_256_GCM_SHA384` (`0x00AC`)
+    * **Non-CNSA Compliant (TLS 1.2):**
+      * `TLS_RSA_WITH_AES_256_CBC_SHA256` (`0x003D`)
+      * `TLS_RSA_WITH_AES_256_GCM_SHA384` (`0x009D`)
+      * `TLS_DHE_RSA_WITH_AES_256_CBC_SHA256` (`0x006D`)
+      * `TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256` (`0xC02B`)
+      * `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` (`0xC02F`)
+      * `TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256` (`0xC023`)
+      * `TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256` (`0xC027`)
+      * `TLS_RSA_WITH_AES_128_CBC_SHA256` (`0x003C`)
+      * `TLS_DHE_RSA_WITH_AES_128_CBC_SHA256` (`0x0067`)
+      * `TLS_RSA_WITH_AES_128_CBC_SHA` (`0x002F`)
+      * `TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256` (`0xD001`)
+      * `TLS_DHE_PSK_WITH_AES_128_GCM_SHA256` (`0x00A8`)
+      * `TLS_RSA_PSK_WITH_AES_128_GCM_SHA256` (`0x00A6`)
+    * **TLS 1.3 Ciphersuites:**
+      * `TLS_AES_256_GCM_SHA384` (`0x1302`)
+      * `TLS_AES_128_GCM_SHA256` (`0x1301`)
+  * Verifies that the TSF does not offer ciphersuites outside of this allowed list, or logs a warning for any non-compliant ciphersuites offered by the client.
 * **FCS\_TLSC\_EXT.1.3 (Forbidden Ciphers):**  
-  * `testRc4Reject` / `test3DesReject` / `testNullCipherReject`: Verifies connection failure when the target server *only* supports prohibited weak or null ciphers.  
+  * `testRc4Reject` / `test3DesReject` / `testNullCipherReject`: Verifies connection failure when the target server *only* supports prohibited weak or null ciphers.
+  * `analyzePcap` explicitly verifies that the `ClientHello` does not offer any of the following 14 forbidden ciphers:
+    * `TLS_NULL_WITH_NULL_NULL` (`0x0000`)
+    * `TLS_RSA_WITH_NULL_MD5` (`0x0001`)
+    * `TLS_RSA_WITH_NULL_SHA` (`0x0002`)
+    * `TLS_RSA_WITH_NULL_SHA256` (`0x003B`)
+    * `TLS_ECDHE_ECDSA_WITH_NULL_SHA` (`0xC006`)
+    * `TLS_ECDHE_RSA_WITH_NULL_SHA` (`0xC010`)
+    * `TLS_RSA_WITH_RC4_128_MD5` (`0x0004`)
+    * `TLS_RSA_WITH_RC4_128_SHA` (`0x0005`)
+    * `TLS_ECDHE_ECDSA_WITH_RC4_128_SHA` (`0xC007`)
+    * `TLS_ECDHE_RSA_WITH_RC4_128_SHA` (`0xC011`)
+    * `TLS_RSA_WITH_3DES_EDE_CBC_SHA` (`0x000A`)
+    * `TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA` (`0x000D`)
+    * `TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA` (`0xC008`)
+    * `TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA` (`0xC012`)
 * **FCS\_TLSC\_EXT.1.4 (Supported & Forbidden Extensions):**  
-  * Verified in `analyzePcap` by checking for required extensions in `ClientHello`:
-    * `signature_algorithms` (`0x000D`)
-    * `supported_groups` (`0x000A`)
-    * `extended_master_secret` (`0x0017`)
-    * `psk_key_exchange_modes` (`0x002D`)
-  * Also verified the **absence** of the `early_data` (`0x002A`) extension.
+  * Verified in `analyzePcap` by checking for required extensions and validating their internal values:
+    * `signature_algorithms` (`0x000D`): Must contain at least one CNSA 1.0 algorithm:
+      * `ecdsa_secp384r1_sha384` (`0x0503`)
+      * `rsa_pkcs1_sha384` (`0x0501`)
+      AND at least one PSS or non-CNSA algorithm:
+      * `rsa_pss_pss_sha384` (`0x080A`)
+      * `rsa_pss_rsae_sha384` (`0x0805`)
+      * `rsa_pkcs1_sha256` (`0x0401`)
+      * `rsa_pss_rsae_sha256` (`0x0804`)
+    * `signature_algorithms_cert` (`0x0032`): Same value check as above if the extension is present.
+    * `supported_groups` (`0x000A`): Must contain at least one allowed group:
+      * `secp384r1` (`0x0018`)
+      * `secp256r1` (`0x0017`)
+  * Also verified the **absence** of the `early_data` (`0x002A`) extension, and logged any offered extensions not in the allowed list.
 * **FCS\_TLSC\_EXT.1.5 (Identifier Verification):**  
   * `testInvalidHost`: Confirms connection termination when presented with a mismatched Reference Identifier.  
 * **FCS\_TLSC\_EXT.1.6 (Invalid Certificate Rejection):**  
@@ -110,19 +155,46 @@ These tests actively simulate malicious or non-compliant server behavior to veri
 * **Impact:** The test passes because the connection fails (as expected), but the failure is triggered by the certificate check rather than the missing secure renegotiation extension. Strict isolation requires a valid certificate chain recognized by BoringSSL.
 
 **4.3 Identifier Verification Type Limitation**
-* **Concern:** `FCS_TLSC_EXT.1.5` requires the TSF to verify presented identifiers of specific name types (like `dNSName`, `IPAddress`, `URI`). Currently, we only verify `dNSName` (hostname) using `badssl.com` endpoints.
-* **Impact:** Verification of other identifier types like `IPAddress` or `uniformResourceIdentifier` is not covered by the current test suite. Testing these would require a custom mock server with certificates containing these specific SAN types, and those certificates would need to be trusted by the device (requiring CA installation).
+* **Concern:** `FCS_TLSC_EXT.1.5` requires the TSF to verify presented identifiers of specific name types (like `dNSName`, `IPAddress`, `URI`). Currently, we only verify `dNSName` (hostname) using `badssl.com` endpoints because public CAs do not typically issue certs with IP or URI SANs.
+* **Impact:** Verification of other identifier types like `IPAddress` or `uniformResourceIdentifier` is not covered by the current test suite.
+* **Proposed Solution:** To test these types, we can generate a private CA and certificates with IP/URI SANs locally. The test app (`openurl`) can be configured to trust this private CA via Android's `Network Security Config` (without trusting it system-wide), allowing the mock server to verify these specific identifier types.
 
-### **V. Next Steps and Reference Repositories**
+### **V. Current Verification Status**
+
+Based on the specific requirements and recent strictness improvements, we have implemented and verified the following in `FcsTlscExtTest.kt` and related tests:
+1.  **Verified** the presence of required and CNSA ciphersuites in `ClientHello` (mapped to `FCS_TLSC_EXT.1.2`).
+2.  **Verified** specific values in `signature_algorithms` and `supported_groups` extensions, ensuring compliance with spec selections (mapped to `FCS_TLSC_EXT.1.4`).
+3.  **Verified** the absence of `early_data` extension in `ClientHello` for TLS 1.3 (mapped to `FCS_TLSC_EXT.6.2`).
+4.  **Identified** that Conscrypt offers extensions and ciphers not explicitly in the spec's allowed list (logged as warnings).
+5.  **Documented Limitation for 1.5:** Verification of `IPAddress` and `URI` identifier types is not covered due to lack of public test servers. A local CA solution is proposed in Section 4.3.
+6.  **Documented Limitation for 4.1:** Renegotiation test passes but fails due to certificate type mismatch in BoringSSL, not strictly isolating renegotiation rejection.
+
+### **VI. Next Steps and Reference Repositories**
 
 With the core TLS functional package requirements verified, the next steps include:
 1. Formalizing the test evidence (logs and PCAP analysis results) into the final evaluation report.
 2. (Optional) Expanding coverage to DTLS Client requirements if specified in the Security Target.
 
-#### **5.1 Reference Repositories** 
+#### **6.1 Reference Repositories** 
 
 The source code for the test cases and the underlying execution framework are maintained in the following repositories:
 
 * **Test Cases (JUnit Plugins):** [https://github.com/KVVat/testbedui-plugins](https://github.com/KVVat/testbedui-plugins)  
   * *Specific TLS Ext Test:* [FcsTlscExtTest.kt](https://github.com/KVVat/testbedui-plugins/blob/main/test-sample/src/main/kotlin/org/example/plugin/fcstls/FcsTlscExtTest.kt)  
 * **Execution Framework:** [https://github.com/KVVat/testbed-core](https://github.com/KVVat/testbed-core)
+
+### **VII. Installation and Execution Guide**
+
+To reproduce the tests and verify the results, follow these steps to install and run the `testbed-core` framework:
+
+1. **Download the Package:**
+   Download the OS-specific ZIP package from the official release page:
+   [TestBed Core Release PR3](https://github.com/KVVat/testbed-core/releases/tag/PR3)
+
+2. **Start the Server:**
+   Extract the package, read the `README.md` file for environment setup instructions, and start the desktop application.
+
+3. **Import Plugins:**
+   Open the Test Explorer in the desktop app and use the import feature to load the `plugins-and-resources.zip` package containing the plugins and test resources.
+
+This release has been verified to be operational for the current test suite. The test cases are contained in the `network` category. 

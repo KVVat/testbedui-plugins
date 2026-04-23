@@ -27,10 +27,4 @@ This document summarizes the key differences (deltas) between the average/minimu
 *   **Android Spec:** Explicitly forbids sending `early_data`. The TSF must **not** send early data in TLS 1.3 sessions to avoid replay attack risks.
 *   **Test Impact:** We must verify the **absence** of the `early_data` extension in the `ClientHello` during PCAP analysis.
 
----
-## Current Verification Status
-Based on these deltas, we have implemented and verified the following in `FcsTlscExtTest.kt` and related tests:
-1.  **Verified** the presence of Android-specific CNSA ciphersuites (`0xC02C`, `0xC030`) in `ClientHello` (mapped to `FCS_TLSC_EXT.1.2/Android`).
-2.  **Verified** the absence of `early_data` extension in `ClientHello` for TLS 1.3 (mapped to `FCS_TLSC_EXT.6.2`).
-3.  **Attempted** to isolate the renegotiation extension rejection in `FcsTlscExt4RenegotiationTest.kt`. However, due to BoringSSL rejecting the dummy certificate with `WRONG_CERTIFICATE_TYPE`, strict isolation remains untestable without a valid server certificate chain recognized by BoringSSL. This limitation is documented in the test code.
-4.  **Resolved** the TLS 1.3 PCAP parsing issue by forcing IPv4 via `ipv4.google.com`, avoiding library limitations in parsing IPv6/SLL2 headers.
+
