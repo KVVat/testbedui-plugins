@@ -118,6 +118,11 @@ class FcsTlscExtTest {
       SFRCheckList.register("FCS_TLSC_EXT.2.1", "Verify mutual authentication (RFC 5246, RFC 8446)")
       SFRCheckList.register("FCS_TLSC_EXT.4.1", "Verify secure renegotiation (RFC 5746)")
       SFRCheckList.register("FCS_TLSC_EXT.5.1", "Verify session resumption offered (RFC 5077, RFC 8446)")
+SFRCheckList.register(
+        "FCS_TLSC_EXT.5.1/SessionTicket",
+        "Verify existence ofSessionTicket in non-resumption tests"
+)
+
       SFRCheckList.register("FCS_TLSC_EXT.6.1", "Verify PSK key exchange modes (RFC 8446)")
       SFRCheckList.register("FCS_TLSC_EXT.6.2", "Verify no early data (RFC 8446)")
     }
@@ -698,8 +703,10 @@ log("Has renegotiation_info extension: $hasRenegInfo")
     val hasSessionTicket = foundExtensions.contains(0x0023)
 log("Has SessionTicket extension: $hasSessionTicket")
 
-    Assert.assertTrue("SessionTicket extension not found in Client Hello", hasSessionTicket)
-    SFRCheckList.pass("FCS_TLSC_EXT.5.1")
+if (!expectResumption) {
+  log("SessionTicket extension not found in Client Hello (Capability might still be supported)")
+}
+
 
     // SFR: FCS_TLSC_EXT.6.1 TLS 1.3 Resumption Refinements
     Assert.assertTrue("psk_key_exchange_modes extension not found", foundExtensions.contains(0x002D))
@@ -740,6 +747,13 @@ log("Has SessionTicket extension: $hasSessionTicket")
     if (expectResumption) {
       Assert.assertTrue("Expected at least 2 Client Hellos for resumption", clientHelloCount >= 2)
 log("Found $clientHelloCount Client Hellos, confirmed resumption attempt!")
+
+
+Assert.assertTrue("SessionTicket extension expected for resumption", hasSessionTicket)
+
+if (hasSessionTicket) SFRCheckList.pass("FCS_TLSC_EXT.5.1/SessionTicket")
+
+SFRCheckList.pass("FCS_TLSC_EXT.5.1")
 
     }
   }

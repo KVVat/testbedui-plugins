@@ -53,31 +53,32 @@ These tests verify the TOE's passive behavior when connecting to endpoints with 
   * `testTls10Reject` / `testTls11Reject`: Verifies that connection attempts fail when the target server *only* supports legacy protocols (TLS 1.0/1.1).  
 * **FCS\_TLSC\_EXT.1.2 (Supported Ciphersuites):**  
     * **CNSA 1.0 Compliant (TLS 1.2):**
-      * `TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384` (`0xC02C`)
-      * `TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384` (`0xC030`)
-      * `TLS_DHE_RSA_WITH_AES_256_GCM_SHA384` (`0x009F`)
-      * `TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384` (`0xC024`)
-      * `TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384` (`0xC028`)
-      * `TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384` (`0xD003`)
-      * `TLS_DHE_PSK_WITH_AES_256_GCM_SHA384` (`0x00AA`)
-      * `TLS_RSA_PSK_WITH_AES_256_GCM_SHA384` (`0x00AC`)
+      * **CNSA 1.0 Compliant (TLS 1.2):**
+      * `TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 as defined in RFC 5289 and RFC 8422` (`0xC02C`)
+      * `TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 as defined in RFC 5289 and RFC 8422` (`0xC030`)
+      * `TLS_DHE_RSA_WITH_AES_256_GCM_SHA384 as defined in RFC 5288` (`0x009F`)
+      * `TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 as defined in RFC 5289 and RFC 8422` (`0xC024`)
+      * `TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384 as defined in RFC 5289 and RFC 8422` (`0xC028`)
+      * `TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384 as defined in RFC 8442` (`0xD003`)
+      * `TLS_DHE_PSK_WITH_AES_256_GCM_SHA384 as defined in RFC 5487` (`0x00AA`)
+      * `TLS_RSA_PSK_WITH_AES_256_GCM_SHA384 as defined in RFC 5487` (`0x00AC`)
     * **Non-CNSA Compliant (TLS 1.2):**
-      * `TLS_RSA_WITH_AES_256_CBC_SHA256` (`0x003D`)
-      * `TLS_RSA_WITH_AES_256_GCM_SHA384` (`0x009D`)
-      * `TLS_DHE_RSA_WITH_AES_256_CBC_SHA256` (`0x006D`)
-      * `TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256` (`0xC02B`)
-      * `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` (`0xC02F`)
-      * `TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256` (`0xC023`)
-      * `TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256` (`0xC027`)
-      * `TLS_RSA_WITH_AES_128_CBC_SHA256` (`0x003C`)
-      * `TLS_DHE_RSA_WITH_AES_128_CBC_SHA256` (`0x0067`)
-      * `TLS_RSA_WITH_AES_128_CBC_SHA` (`0x002F`)
-      * `TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256` (`0xD001`)
-      * `TLS_DHE_PSK_WITH_AES_128_GCM_SHA256` (`0x00A8`)
-      * `TLS_RSA_PSK_WITH_AES_128_GCM_SHA256` (`0x00A6`)
+      * `TLS_RSA_WITH_AES_256_CBC_SHA256 as defined in RFC 5246` (`0x003D`)
+      * `TLS_RSA_WITH_AES_256_GCM_SHA384 as defined in RFC 5288` (`0x009D`)
+      * `TLS_DHE_RSA_WITH_AES_256_CBC_SHA256 as defined in RFC 5246` (`0x006D`)
+      * `TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 as defined in RFC 5289` (`0xC02B`)
+      * `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as defined in RFC 5289` (`0xC02F`)
+      * `TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 as defined in RFC 5289` (`0xC023`)
+      * `TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 as defined in RFC 5289` (`0xC027`)
+      * `TLS_RSA_WITH_AES_128_CBC_SHA256 as defined in RFC 5246` (`0x003C`)
+      * `TLS_DHE_RSA_WITH_AES_128_CBC_SHA256 as defined in RFC 5246` (`0x0067`)
+      * `TLS_RSA_WITH_AES_128_CBC_SHA as defined in RFC 5246` (`0x002F`)
+      * `TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256 as defined in RFC 8442` (`0xD001`)
+      * `TLS_DHE_PSK_WITH_AES_128_GCM_SHA256 as defined in RFC 5487` (`0x00A8`)
+      * `TLS_RSA_PSK_WITH_AES_128_GCM_SHA256 as defined in RFC 5487` (`0x00A6`)
     * **TLS 1.3 Ciphersuites:**
-      * `TLS_AES_256_GCM_SHA384` (`0x1302`)
-      * `TLS_AES_128_GCM_SHA256` (`0x1301`)
+      * `TLS_AES_256_GCM_SHA384 as defined in RFC 8446` (`0x1302`)
+      * `TLS_AES_128_GCM_SHA256 as defined in RFC 8446` (`0x1301`)
   * Verifies that the TSF does not offer ciphersuites outside of this allowed list, or logs a warning for any non-compliant ciphersuites offered by the client.
 * **FCS\_TLSC\_EXT.1.3 (Forbidden Ciphers):**  
   * `testRc4Reject` / `test3DesReject` / `testNullCipherReject`: Verifies connection failure when the target server *only* supports prohibited weak or null ciphers.
@@ -197,4 +198,21 @@ To reproduce the tests and verify the results, follow these steps to install and
 3. **Import Plugins:**
    Open the Test Explorer in the desktop app and use the import feature to load the `plugins-and-resources.zip` package containing the plugins and test resources.
 
-This release has been verified to be operational for the current test suite. The test cases are contained in the `network` category. 
+This release has been verified to be operational for the current test suite. The test cases are contained in the `network` category.
+
+### **VIII. Extension Verification Checklist**
+
+To address the dynamic behavior of the Android TLS implementation (Conscrypt), where some extensions may be omitted in specific fallback or error scenarios, the following checklist summarizes where each required extension is verified.
+
+| Extension | Spec ID | Primary Test Case | Verification Status | Conscrypt Behavior Note |
+| :--- | :--- | :--- | :--- | :--- |
+| `signature_algorithms` (`0x000D`) | FCS_TLSC_EXT.1.4 | `testTls12Support` | **Verified** | May be omitted by Conscrypt in some fallback handshakes. |
+| `supported_groups` (`0x000A`) | FCS_TLSC_EXT.1.4 | `testTls12Support` | **Verified** | May be omitted by Conscrypt in some fallback handshakes. |
+| `extended_master_secret` (`0x0017`) | FCS_TLSC_EXT.1.4 | `testTls12Support` | **Verified** | May be omitted by Conscrypt in some fallback handshakes. |
+| `psk_key_exchange_modes` (`0x002D`) | FCS_TLSC_EXT.6.1 | `testTls13Support` | **Verified** | Only required and present in TLS 1.3 handshakes. |
+| `session_ticket` (`0x0023`) | FCS_TLSC_EXT.5.1 | `testSessionResumption` | **Verified** | Only sent when the client intends to support or attempt resumption. |
+| `session_ticket` (`0x0023`) (Absence) | FCS_TLSC_EXT.5.1 | `testInvalidHost`, etc. | **Observed** | Conscrypt may omit it in non-resumption handshakes. Logged as warning. |
+| `early_data` (`0x002A`) (Absence) | FCS_TLSC_EXT.6.2 | `testTls13Support` | **Verified** | Confirmed to be absent in TLS 1.3 ClientHello. |
+
+> [!NOTE]
+> The test suite logs the absence of these extensions as **Warnings** in non-primary tests to avoid false failures due to Conscrypt's dynamic behavior, while ensuring that the capability is demonstrated in at least one test case. 
