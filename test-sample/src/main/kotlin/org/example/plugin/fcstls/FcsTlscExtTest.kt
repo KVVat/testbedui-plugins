@@ -666,31 +666,31 @@ log("Matches with required ciphers: ${matches.map { String.format("0x%04X", it) 
     Assert.assertTrue("TLS version should be 1.2 or later", tlsVersion != null && tlsVersion >= 0x0303)
 
     // SFR: FCS_TLSC_EXT.1.4 Required Extensions
-    // Assert.assertTrue("signature_algorithms extension not found", foundExtensions.contains(0x000D))
+    Assert.assertTrue("signature_algorithms extension not found", foundExtensions.contains(0x000D))
     Assert.assertTrue("supported_groups extension not found", foundExtensions.contains(0x000A))
     
     // Verify specific signature algorithms (FCS_TLSC_EXT.1.4)
-    // log("Found Signature Algorithms: ${foundSigAlgs.map { String.format("0x%04X", it) }}")
+    log("Found Signature Algorithms: ${foundSigAlgs.map { String.format("0x%04X", it) }}")
     
     // Group 1: CNSA 1.0 compliant (Must have at least one)
-    // val hasGroup1 = foundSigAlgs.contains(0x0503) || foundSigAlgs.contains(0x0501) // ecdsa_secp384r1_sha384 or rsa_pkcs1_sha384
-    // Assert.assertTrue("Neither ecdsa_secp384r1_sha384 nor rsa_pkcs1_sha384 found in signature_algorithms", hasGroup1)
+    val hasGroup1 = foundSigAlgs.contains(0x0503) || foundSigAlgs.contains(0x0501) // ecdsa_secp384r1_sha384 or rsa_pkcs1_sha384
+    Assert.assertTrue("Neither ecdsa_secp384r1_sha384 nor rsa_pkcs1_sha384 found in signature_algorithms", hasGroup1)
     
     // Group 2: CNSA 1.0 or non-CNSA compliant (Must have at least one)
-    // val hasGroup2 = foundSigAlgs.contains(0x080A) || foundSigAlgs.contains(0x0805) || // rsa_pss_pss_sha384 or rsa_pss_rsae_sha384
-    //                 foundSigAlgs.contains(0x0401) || foundSigAlgs.contains(0x0804)   // rsa_pkcs1_sha256 or rsa_pss_rsae_sha256
-    // Assert.assertTrue("None of the allowed PSS or non-CNSA algorithms found in signature_algorithms", hasGroup2)
+    val hasGroup2 = foundSigAlgs.contains(0x080A) || foundSigAlgs.contains(0x0805) || // rsa_pss_pss_sha384 or rsa_pss_rsae_sha384
+                    foundSigAlgs.contains(0x0401) || foundSigAlgs.contains(0x0804)   // rsa_pkcs1_sha256 or rsa_pss_rsae_sha256
+    Assert.assertTrue("None of the allowed PSS or non-CNSA algorithms found in signature_algorithms", hasGroup2)
     
     // Verify signature_algorithms_cert if present (FCS_TLSC_EXT.1.4)
-    // if (foundExtensions.contains(0x0032)) {
-    //   log("Found Signature Algorithms Cert: ${foundSigAlgsCert.map { String.format("0x%04X", it) }}")
-    //   val hasGroup1Cert = foundSigAlgsCert.contains(0x0503) || foundSigAlgsCert.contains(0x0501)
-    //   Assert.assertTrue("Neither ecdsa_secp384r1_sha384 nor rsa_pkcs1_sha384 found in signature_algorithms_cert", hasGroup1Cert)
-    //   
-    //   val hasGroup2Cert = foundSigAlgsCert.contains(0x080A) || foundSigAlgsCert.contains(0x0805) ||
-    //                       foundSigAlgsCert.contains(0x0401) || foundSigAlgsCert.contains(0x0804)
-    //   Assert.assertTrue("None of the allowed PSS or non-CNSA algorithms found in signature_algorithms_cert", hasGroup2Cert)
-    // }
+    if (foundExtensions.contains(0x0032)) {
+      log("Found Signature Algorithms Cert: ${foundSigAlgsCert.map { String.format("0x%04X", it) }}")
+      val hasGroup1Cert = foundSigAlgsCert.contains(0x0503) || foundSigAlgsCert.contains(0x0501)
+      Assert.assertTrue("Neither ecdsa_secp384r1_sha384 nor rsa_pkcs1_sha384 found in signature_algorithms_cert", hasGroup1Cert)
+      
+      val hasGroup2Cert = foundSigAlgsCert.contains(0x080A) || foundSigAlgsCert.contains(0x0805) ||
+                          foundSigAlgsCert.contains(0x0401) || foundSigAlgsCert.contains(0x0804)
+      Assert.assertTrue("None of the allowed PSS or non-CNSA algorithms found in signature_algorithms_cert", hasGroup2Cert)
+    }
     
     // Verify supported groups (FCS_TLSC_EXT.1.4)
     log("Found Supported Groups: ${foundGroups.map { String.format("0x%04X", it) }}")
