@@ -1,6 +1,7 @@
 package org.example.plugin.fcstls
 
 import org.example.plugin.utils.ADSRPTestWatcher
+import org.example.plugin.utils.TlsTableLookup
 import org.example.plugin.utils.AdamUtils
 import org.example.plugin.utils.Report
 import org.example.plugin.utils.SFR
@@ -605,9 +606,9 @@ log("HTTP response: $httpret")
     }
 
     Assert.assertTrue("Client Hello not found in capture", foundClientHello)
-log("Supported Ciphers found: ${supportedCiphers.map { String.format("0x%04X", it) }}")
+log("Supported Ciphers found: ${supportedCiphers.map { TlsTableLookup.getCandidateName(it) }}")
 
-log("Found Extensions: ${foundExtensions.map { String.format("0x%04X", it) }}")
+log("Found Extensions: ${foundExtensions.map { TlsTableLookup.getExtensionName(it) }}")
 
 log("TLS Version in Client Hello: ${tlsVersion?.let { String.format("0x%04X", it) }}")
 
@@ -684,7 +685,7 @@ log("Matches with required ciphers: ${matches.map { String.format("0x%04X", it) 
     Assert.assertTrue("supported_groups extension not found", foundExtensions.contains(0x000A))
     
     // Verify specific signature algorithms (FCS_TLSC_EXT.1.4)
-    log("Found Signature Algorithms: ${foundSigAlgs.map { String.format("0x%04X", it) }}")
+    log("Found Signature Algorithms: ${foundSigAlgs.map { TlsTableLookup.getSignatureSchemeName(it) }}")
     
     // Group 1: CNSA 1.0 compliant (Must have at least one)
     val hasGroup1 = foundSigAlgs.contains(0x0503) || foundSigAlgs.contains(0x0501) // ecdsa_secp384r1_sha384 or rsa_pkcs1_sha384
@@ -707,7 +708,7 @@ log("Matches with required ciphers: ${matches.map { String.format("0x%04X", it) 
     }
     
     // Verify supported groups (FCS_TLSC_EXT.1.4)
-    log("Found Supported Groups: ${foundGroups.map { String.format("0x%04X", it) }}")
+    log("Found Supported Groups: ${foundGroups.map { TlsTableLookup.getGroupName(it) }}")
     val hasRequiredGroup = foundGroups.contains(0x0018) || foundGroups.contains(0x0017) // secp384r1 or secp256r1
     Assert.assertTrue("Neither secp384r1 nor secp256r1 found in supported_groups", hasRequiredGroup)
     
@@ -790,7 +791,7 @@ log("Found $clientHelloCount Client Hellos, confirmed resumption attempt!")
     }
   }
 
-  private fun tlsCapturePacket(testlabel:String, testurl:String, p12Path: String? = null, p12Pass: String? = null, resumption: Boolean = false): org.example.plugin.utils.TlsResult {
+  private fun tlsCapturePacket(testlabel:String, testurl:String, p12Path: String? = null, p12Pass: String? = null, resumption: Boolean = false, type: String = "http", forceTls12: Boolean = false): org.example.plugin.utils.TlsResult {
     var pcap: Path = Paths.get("/")
     var httpResp: String = ""
     var workerLogsStr: String = ""
@@ -832,6 +833,10 @@ log("Launching app with URL: $testurl")
       }
       if (resumption) {
           cmd += " --ez resumption true"
+      }
+      cmd += " -e type $type"
+      if (forceTls12) {
+          cmd += " --ez forceTls12 true"
       }
       client.execute(com.malinskiy.adam.request.shell.v1.ShellCommandRequest(cmd), serial)
 

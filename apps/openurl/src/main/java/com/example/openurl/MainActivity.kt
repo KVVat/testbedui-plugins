@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     val p12Path = intent.getStringExtra("p12path")
     val p12Pass = intent.getStringExtra("p12pass")
     val resumption = intent.getBooleanExtra("resumption", false)
+    val forceTls12 = intent.getBooleanExtra("forceTls12", false)
     if(!type_.isNullOrBlank()){
       type = type_
     }
@@ -55,6 +56,7 @@ class MainActivity : AppCompatActivity() {
         .putString("p12path", p12Path)
         .putString("p12pass", p12Pass)
         .putBoolean("resumption", resumption)
+        .putBoolean("forceTls12", forceTls12)
         .build()
 
       workRequest = OneTimeWorkRequest.Builder(NetworkWorker::class.java).setInputData(data).build()

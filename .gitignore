@@ -38,5 +38,5 @@ repomix-patch.txt
 /build/
 /test-sample/build/
 /test-sample/build/classes/kotlin/main/bin/
-
+/test-sample/scripts/tls/.venv/
 bin/

@@ -127,6 +127,7 @@ Runtime coverage in this testbed is bounded by what the `openurl` HttpURLConnect
 
 For every inner-selection item that the ST claims but this testbed cannot drive at runtime:
 
+
 - **Primary evidence:** vendor ATE results + TSF design documentation (per CEM). Expected content: pointer to the Android `libcore` / Conscrypt code path that performs the match, plus any vendor-internal test results.
 - **Secondary supporting evidence (where we can contribute):** AOSP source references. Candidates worth citing in note §4.3 when finalizing:
   - `external/conscrypt/repackaged/common/src/main/java/com/android/org/conscrypt/OkHostnameVerifier.java` — concrete proof of the dNSName + iPAddress scope: `verifyHostname(String, X509Certificate)` walks only SAN type 2 (dNSName), and `verifyIpAddress(String, X509Certificate)` walks only SAN type 7 (iPAddress). URI (type 6), rfc822Name (type 1), directoryName (type 4) are not inspected.
