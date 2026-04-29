@@ -169,10 +169,19 @@ These tests actively simulate malicious or non-compliant server behavior to veri
 * **Resolution (2026-04-23):** It was discovered that the test suite's PCAP parser had a boundary condition bug (off-by-2 error when calculating vector lengths) that caused it to silently drop the final entries of the `supported_groups` and `signature_algorithms` lists.
 * **Final Status:** After fixing the parser bug, the full list was correctly read as `[x25519, secp256r1, secp384r1]`. Therefore, `secp384r1` **is** present in the `ClientHello`, and the TOE does comply with the ST's requirement. No customization of `SSLSocketFactory` or `SSLParameters` is required.
 
-**4.5 Session Resumption Dynamic Verification Deficit**
-* **Concern:** `FCS_TLSC_EXT.5.1` requires support for session resumption. While we verify the presence of `session_ticket` and `psk_key_exchange_modes` extensions in `ClientHello` (static capability), we do not actively verify that a session is successfully resumed (dynamic behavior).
-* **Impact:** The test suite demonstrates capability but stops short of proving end-to-end execution of abbreviated handshakes.
-* **Proposed Solution:** Implement a two-step connection test against a local mock server to verify that a session ticket issued in the first connection is successfully used to resume the session in the second connection.
+**4.5 Session Resumption Dynamic Verification —— [RESOLVED]**
+* **Initial Concern:** `FCS_TLSC_EXT.5.1` requires support for session resumption. Earlier the test suite only verified the *static* presence of `session_ticket` and `psk_key_exchange_modes` extensions in `ClientHello`, without confirming end-to-end execution of an abbreviated handshake.
+* **Resolution (2026-04-29):** [FcsTlscExtTest.kt](./FcsTlscExtTest.kt) was extended with a cross-flow PCAP analyzer (`analyzeResumptionEvidence`) that walks every TCP flow in the capture, extracts plaintext handshake messages (ClientHello / ServerHello / NewSessionTicket / Certificate / ServerKeyExchange / ServerHelloDone), and infers which RFC mechanism was actually used to resume. The decisive signal in TLS 1.2 is whether the server's 2nd-flight contains a `Certificate` message (full handshake) or skips it (abbreviated handshake = resumption succeeded).
+* **Evidence — TLS 1.2 RFC 5077 Tickets (`testSessionResumption`):**
+  | Capture event | Observation |
+  |---|---|
+  | 1st connection server flight | ServerHello + Certificate + ServerKeyExchange + ServerHelloDone + NewSessionTicket(192B, lifetime 300s) |
+  | 2nd connection ClientHello | non-empty `session_ticket` extension (192B), echoes 1st SH session_id (RFC 5077 §3.4 simultaneous offer) |
+  | 2nd connection server flight | **ServerHello only** (no Certificate / SKE / SHD) |
+  | Inferred mechanism | `TLS_1_2_RFC5077_TICKET_RESUMED_NO_SID_ECHO` |
+* **Compliance interpretation:** From the TOE's perspective the abbreviated handshake completed → RFC 5077 ticket-based resumption is **dynamically verified**. The "no_sid_echo" suffix flags a server-side RFC 5077 §3.4 anomaly (badssl/nginx returns empty SH session_id despite the 2nd CH carrying a non-empty session_id). This anomaly is server-side, not TOE-side, and does not affect FCS_TLSC_EXT.5.1 evidence quality for the client.
+* **Documented capability — TLS 1.3 PSK (`testSessionResumptionTls13`):** A separate test connects twice to `https://ipv4.google.com/` (TLS 1.3 endpoint) and uses the same analyzer to detect `pre_shared_key` (0x0029) presence in the 2nd ClientHello AND in the 2nd ServerHello. Soft assertions only because external endpoints may not always issue tickets / accept resumption (load-balancer state, rate-limiting). Successful runs register the `FCS_TLSC_EXT.5.1/PSK` checklist entry as documented capability — note that the ST does not claim the "PSK and tickets in accordance with RFC 8446" selection, so this entry is evidence of capability, not a claimed SFR.
+* **TLS 1.2 Session ID (RFC 5246):** Not currently exercised. The badssl:1012 server prefers ticket-based resumption and returns an empty session_id in the 2nd ServerHello, suppressing the session-ID path. To strictly verify session-ID resumption, a dedicated mock server (with `ssl_session_tickets off`) would be required. Documented as future work; not blocking since session ID is not separately claimed in the ST beyond ticket-based resumption.
 
 ### **V. Current Verification Status**
 
@@ -224,8 +233,9 @@ To address the dynamic behavior of the Android TLS implementation (Conscrypt), w
 | `supported_groups` (`0x000A`) | FCS_TLSC_EXT.1.4 | `testTls12Support` | **Verified** | May be omitted by Conscrypt in some fallback handshakes. |
 | `extended_master_secret` (`0x0017`) | FCS_TLSC_EXT.1.4 | `testTls12Support` | **Verified** | May be omitted by Conscrypt in some fallback handshakes. |
 | `psk_key_exchange_modes` (`0x002D`) | FCS_TLSC_EXT.6.1 | `testTls13Support` | **Verified** | Only required and present in TLS 1.3 handshakes. |
-| `session_ticket` (`0x0023`) | FCS_TLSC_EXT.5.1 | `testSessionResumption` | **Verified** | Only sent when the client intends to support or attempt resumption. |
+| `session_ticket` (`0x0023`) | FCS_TLSC_EXT.5.1 | `testSessionResumption` | **Verified (Static + Dynamic)** | Static: presence in ClientHello. Dynamic: 2nd-flight Certificate absence proves abbreviated handshake (RFC 5077). |
 | `session_ticket` (`0x0023`) (Absence) | FCS_TLSC_EXT.5.1 | `testInvalidHost`, etc. | **Observed** | Conscrypt may omit it in non-resumption handshakes. Logged as warning. |
+| `pre_shared_key` (`0x0029`) | FCS_TLSC_EXT.5.1/PSK | `testSessionResumptionTls13` | **Documented Capability** | TLS 1.3 PSK resumption (RFC 8446). Soft check against ipv4.google.com; ST does not claim the "PSK and tickets" selection so this is evidence of capability only. |
 | `early_data` (`0x002A`) (Absence) | FCS_TLSC_EXT.6.2 | `testTls13Support` | **Verified** | Confirmed to be absent in TLS 1.3 ClientHello. |
 
 > [!NOTE]

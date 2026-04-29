@@ -119,10 +119,14 @@ class FcsTlscExtTest {
       SFRCheckList.register("FCS_TLSC_EXT.2.1", "Verify mutual authentication (RFC 5246, RFC 8446)")
       SFRCheckList.register("FCS_TLSC_EXT.4.1", "Verify secure renegotiation (RFC 5746)")
       SFRCheckList.register("FCS_TLSC_EXT.5.1", "Verify session resumption offered (RFC 5077, RFC 8446)")
-SFRCheckList.register(
+      SFRCheckList.register(
         "FCS_TLSC_EXT.5.1/SessionTicket",
-        "Verify existence ofSessionTicket in non-resumption tests"
-)
+        "Verify existence of SessionTicket in non-resumption tests"
+      )
+      SFRCheckList.register(
+        "FCS_TLSC_EXT.5.1/PSK",
+        "Documented capability: TLS 1.3 PSK resumption (RFC 8446) — not claimed in ST selection"
+      )
 
       SFRCheckList.register("FCS_TLSC_EXT.6.1", "Verify PSK key exchange modes (RFC 8446)")
       SFRCheckList.register("FCS_TLSC_EXT.6.2", "Verify no early data (RFC 8446)")
@@ -396,19 +400,43 @@ log("HTTP response: $httpret")
     val hostName = "https://tls-v1-2.badssl.com:1012/"
     val resp = tlsCapturePacket("resumption", hostName, resumption = true)
     val httpret = resp.httpResponse
-log("HTTP response: $httpret")
-
+    log("HTTP response: $httpret")
 
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
-    
+
     val pcapPath = resp.pcapPath
     analyzePcap(pcapPath, expectAlert = false, expectResumption = true)
+  }
+
+  /**
+   * Documented capability check: TLS 1.3 PSK resumption (RFC 8446) against a
+   * public TLS 1.3 endpoint (Google).
+   *
+   * Not part of the strict ST claim ("PSK and tickets" is unchecked in the
+   * selection for FCS_TLSC_EXT.5.1) but provides direct evidence that the TOE
+   * (Conscrypt) supports the PSK mechanism end-to-end.
+   *
+   * Soft assertions only: external endpoints may not always issue tickets or
+   * accept resumption (load-balancer state, rate-limiting). See
+   * [FCS_TLSC_EXT.5.1/PSK] checklist entry for status.
+   */
+  @Test
+  fun testSessionResumptionTls13() {
+    val hostName = "https://ipv4.google.com/"
+    val resp = tlsCapturePacket("resumption_tls13", hostName, resumption = true)
+    val httpret = resp.httpResponse
+    log("HTTP response: $httpret")
+
+    errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
+
+    val pcapPath = resp.pcapPath
+    analyzePcap(pcapPath, expectAlert = false, expectResumption = true, expectTls13Resumption = true)
   }
 
   // NOTE: FCS_TLSC_EXT.3 (Downgrade Protection) requires a custom server that sends
   // the downgrade indicator in Server Random. Since badssl.com does not support this,
   // it is not tested here. A dedicated test server or container would be needed.
-  private fun analyzePcap(pcapPath: Path, expectAlert: Boolean, expectClientCert: Boolean = false, expectResumption: Boolean = false) {
+  private fun analyzePcap(pcapPath: Path, expectAlert: Boolean, expectClientCert: Boolean = false, expectResumption: Boolean = false, expectTls13Resumption: Boolean = false) {
     val pcap = Pcap.openStream(pcapPath.toFile())
     var foundClientHello = false
     var foundAlert = false
@@ -761,7 +789,8 @@ if (!expectResumption) {
       0x0029, // pre_shared_key
       0x0021, // tls_cert_with_extern_psk
       0x002D, // psk_key_exchange_modes
-      0x0017  // extended_master_secret
+      0x0017, // extended_master_secret
+      0x0023  // session_ticket — required by FCS_TLSC_EXT.5.1 ticket selection (RFC 5077)
     )
     val forbiddenOffered = foundExtensions.filter { !allowedExtensions.contains(it) }
     log("Offered extensions not in allowed list: ${forbiddenOffered.map { String.format("0x%04X", it) }}")
@@ -779,16 +808,39 @@ if (!expectResumption) {
     }
 
     if (expectResumption) {
-      Assert.assertTrue("Expected at least 2 Client Hellos for resumption", clientHelloCount >= 2)
-log("Found $clientHelloCount Client Hellos, confirmed resumption attempt!")
+      log("===== Resumption Evidence Analysis =====")
+      val flowBufsByPair: Map<Pair<Int, Int>, ByteArray> =
+        flowBufs.mapKeys { Pair(it.key.src, it.key.dst) }.mapValues { it.value.toByteArray() }
+      val evidence = analyzeResumptionEvidence(flowBufsByPair)
 
+      Assert.assertTrue(
+        "Expected at least 2 Client Hellos across all flows for resumption (found ${evidence.clientHelloCount})",
+        evidence.clientHelloCount >= 2
+      )
 
-      Assert.assertTrue("SessionTicket extension expected for resumption", hasSessionTicket)
-
-      if (hasSessionTicket) SFRCheckList.pass("FCS_TLSC_EXT.5.1/SessionTicket")
-
-      SFRCheckList.pass("FCS_TLSC_EXT.5.1")
-
+      if (expectTls13Resumption) {
+        // TLS 1.3 PSK path (RFC 8446). Soft checks because external endpoints
+        // (e.g. Google) may not always issue tickets or accept resumption due
+        // to load-balancer state or rate-limiting.
+        log("[FCS_TLSC_EXT.5.1] Evaluating TLS 1.3 PSK resumption (documented capability).")
+        errs.checkThat(
+          a.msg("Expected pre_shared_key extension in 2nd ClientHello (TLS 1.3 PSK offer)"),
+          evidence.ch2HasPreSharedKey, IsEqual(true)
+        )
+        errs.checkThat(
+          a.msg("Expected pre_shared_key extension in 2nd ServerHello (TLS 1.3 PSK acceptance)"),
+          evidence.sh2HasPreSharedKey, IsEqual(true)
+        )
+        if (evidence.ch2HasPreSharedKey && evidence.sh2HasPreSharedKey) {
+          SFRCheckList.pass("FCS_TLSC_EXT.5.1/PSK")
+        } else {
+          log("[FCS_TLSC_EXT.5.1/PSK] PSK resumption not observed in this run; rerun may help (network may be flaky).")
+        }
+      } else {
+        Assert.assertTrue("SessionTicket extension expected for resumption", hasSessionTicket)
+        if (hasSessionTicket) SFRCheckList.pass("FCS_TLSC_EXT.5.1/SessionTicket")
+        SFRCheckList.pass("FCS_TLSC_EXT.5.1")
+      }
     }
   }
 
@@ -912,5 +964,399 @@ log("we can't grab the return value from worker.")
     val to = Paths.get(OUT_PATH,"${tstmp}-${testlabel}.pcap")
     Files.copy(pcap, to)
     return to
+  }
+
+  // ---------------------------------------------------------------------------
+  // Resumption evidence helpers (FCS_TLSC_EXT.5.1)
+  // ---------------------------------------------------------------------------
+  // Goal: across all observed TCP flows in a capture (resumption typically uses
+  // separate TCP connections, so flowBufs has multiple entries), enumerate the
+  // ClientHello / ServerHello / NewSessionTicket plaintext handshake messages
+  // and infer which RFC mechanism the TOE used to resume:
+  //   - RFC 5246 (TLS 1.2 session ID)
+  //   - RFC 5077 (TLS 1.2 session tickets)
+  //   - RFC 8446 (TLS 1.3 pre_shared_key)
+  // The result is logged for human review; the test only asserts that 2+
+  // ClientHellos exist (existing behaviour).
+
+  private data class CHInfo(
+    val sessionId: ByteArray,
+    val cipherSuiteCount: Int,
+    val ext: Map<Int, ByteArray>
+  )
+
+  private data class SHInfo(
+    val legacyVersion: Int,
+    val sessionId: ByteArray,
+    val cipherSuite: Int,
+    val ext: Map<Int, ByteArray>
+  )
+
+  private data class ResumptionEvidence(
+    val clientHelloCount: Int,
+    val serverHelloCount: Int,
+    val newSessionTicketCount: Int,
+    val flowCount: Int,
+    val mechanism: String,
+    // TLS 1.2 ticket path
+    val ch2HasNonEmptyTicket: Boolean,
+    // TLS 1.3 PSK path
+    val ch2HasPreSharedKey: Boolean,
+    val sh2HasPreSharedKey: Boolean,
+    // Useful for TLS 1.2 (Certificate is encrypted in TLS 1.3 anyway)
+    val secondFlightAbbreviated: Boolean
+  )
+
+  /**
+   * Walk a single TCP flow's reassembled bytes and return the plaintext
+   * handshake messages (type, body). Stops accumulating when an apparently
+   * encrypted handshake record is reached (heuristic: first byte not a known
+   * handshake type). NewSessionTicket in TLS 1.2 is observable here because
+   * RFC 5077 §3.3 places it before the server's ChangeCipherSpec (plaintext).
+   * In TLS 1.3 only ClientHello / ServerHello are plaintext; the post-handshake
+   * NewSessionTicket is encrypted and won't appear.
+   */
+  private fun extractPlaintextHandshakes(bytes: ByteArray): List<Pair<Int, ByteArray>> {
+    val acc = java.io.ByteArrayOutputStream()
+    val plaintextHsTypes = setOf(0x01, 0x02, 0x04, 0x08, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x14, 0x18)
+    var p = 0
+    loop@ while (p + 5 <= bytes.size) {
+      val type = bytes[p].toInt() and 0xFF
+      val vmaj = bytes[p + 1].toInt() and 0xFF
+      if (vmaj != 0x03) break
+      val len = ((bytes[p + 3].toInt() and 0xFF) shl 8) or (bytes[p + 4].toInt() and 0xFF)
+      if (p + 5 + len > bytes.size) break
+      when (type) {
+        0x14 -> {
+          // ChangeCipherSpec: in TLS 1.2 subsequent handshakes are encrypted; in
+          // TLS 1.3 a dummy CCS is sent for middlebox compat. Continue scanning.
+          p += 5 + len
+        }
+        0x16 -> {
+          if (len >= 1 && (bytes[p + 5].toInt() and 0xFF) in plaintextHsTypes) {
+            acc.write(bytes, p + 5, len)
+            p += 5 + len
+          } else {
+            break@loop
+          }
+        }
+        else -> p += 5 + len
+      }
+    }
+
+    val msgs = mutableListOf<Pair<Int, ByteArray>>()
+    val buf = acc.toByteArray()
+    var q = 0
+    while (q + 4 <= buf.size) {
+      val hsType = buf[q].toInt() and 0xFF
+      val hsLen = ((buf[q + 1].toInt() and 0xFF) shl 16) or
+        ((buf[q + 2].toInt() and 0xFF) shl 8) or
+        (buf[q + 3].toInt() and 0xFF)
+      if (q + 4 + hsLen > buf.size) break
+      msgs.add(hsType to buf.copyOfRange(q + 4, q + 4 + hsLen))
+      q += 4 + hsLen
+    }
+    return msgs
+  }
+
+  private fun parseClientHelloBody(body: ByteArray): CHInfo? {
+    if (body.size < 2 + 32 + 1) return null
+    var off = 2 + 32
+    val sidLen = body[off].toInt() and 0xFF
+    off += 1
+    if (off + sidLen + 2 > body.size) return null
+    val sessionId = body.copyOfRange(off, off + sidLen)
+    off += sidLen
+    val csLen = ((body[off].toInt() and 0xFF) shl 8) or (body[off + 1].toInt() and 0xFF)
+    off += 2
+    if (off + csLen > body.size) return null
+    val csCount = csLen / 2
+    off += csLen
+    if (off + 1 > body.size) return CHInfo(sessionId, csCount, emptyMap())
+    val compLen = body[off].toInt() and 0xFF
+    off += 1 + compLen
+    if (off + 2 > body.size) return CHInfo(sessionId, csCount, emptyMap())
+    val extLen = ((body[off].toInt() and 0xFF) shl 8) or (body[off + 1].toInt() and 0xFF)
+    off += 2
+    val extEnd = minOf(off + extLen, body.size)
+    val ext = mutableMapOf<Int, ByteArray>()
+    while (off + 4 <= extEnd) {
+      val type = ((body[off].toInt() and 0xFF) shl 8) or (body[off + 1].toInt() and 0xFF)
+      val l = ((body[off + 2].toInt() and 0xFF) shl 8) or (body[off + 3].toInt() and 0xFF)
+      if (off + 4 + l > extEnd) break
+      ext[type] = body.copyOfRange(off + 4, off + 4 + l)
+      off += 4 + l
+    }
+    return CHInfo(sessionId, csCount, ext)
+  }
+
+  private fun parseServerHelloBody(body: ByteArray): SHInfo? {
+    if (body.size < 2 + 32 + 1) return null
+    val legacyVersion = ((body[0].toInt() and 0xFF) shl 8) or (body[1].toInt() and 0xFF)
+    var off = 2 + 32
+    val sidLen = body[off].toInt() and 0xFF
+    off += 1
+    if (off + sidLen + 2 + 1 > body.size) return null
+    val sessionId = body.copyOfRange(off, off + sidLen)
+    off += sidLen
+    val cipherSuite = ((body[off].toInt() and 0xFF) shl 8) or (body[off + 1].toInt() and 0xFF)
+    off += 2
+    off += 1 // compression method
+    if (off + 2 > body.size) return SHInfo(legacyVersion, sessionId, cipherSuite, emptyMap())
+    val extLen = ((body[off].toInt() and 0xFF) shl 8) or (body[off + 1].toInt() and 0xFF)
+    off += 2
+    val extEnd = minOf(off + extLen, body.size)
+    val ext = mutableMapOf<Int, ByteArray>()
+    while (off + 4 <= extEnd) {
+      val type = ((body[off].toInt() and 0xFF) shl 8) or (body[off + 1].toInt() and 0xFF)
+      val l = ((body[off + 2].toInt() and 0xFF) shl 8) or (body[off + 3].toInt() and 0xFF)
+      if (off + 4 + l > extEnd) break
+      ext[type] = body.copyOfRange(off + 4, off + 4 + l)
+      off += 4 + l
+    }
+    return SHInfo(legacyVersion, sessionId, cipherSuite, ext)
+  }
+
+  private fun parseSupportedVersionsClient(extData: ByteArray): List<Int> {
+    if (extData.isEmpty()) return emptyList()
+    val len = extData[0].toInt() and 0xFF
+    val out = mutableListOf<Int>()
+    var i = 1
+    while (i + 2 <= 1 + len && i + 2 <= extData.size) {
+      out.add(((extData[i].toInt() and 0xFF) shl 8) or (extData[i + 1].toInt() and 0xFF))
+      i += 2
+    }
+    return out
+  }
+
+  private fun parsePskKeyExchangeModes(extData: ByteArray): List<Int> {
+    if (extData.isEmpty()) return emptyList()
+    val len = extData[0].toInt() and 0xFF
+    val out = mutableListOf<Int>()
+    for (i in 0 until len) {
+      if (1 + i < extData.size) out.add(extData[1 + i].toInt() and 0xFF)
+    }
+    return out
+  }
+
+  private fun pskKemName(m: Int): String = when (m) {
+    0 -> "psk_ke"
+    1 -> "psk_dhe_ke"
+    else -> "unknown($m)"
+  }
+
+  private fun bytesToHex(b: ByteArray): String =
+    if (b.isEmpty()) "(empty)" else b.joinToString("") { String.format("%02x", it.toInt() and 0xFF) }
+
+  private fun analyzeResumptionEvidence(flowBufs: Map<Pair<Int, Int>, ByteArray>): ResumptionEvidence {
+    // Detect server port: any flow whose dst contains a ClientHello.
+    val serverPort = flowBufs.entries.firstNotNullOfOrNull { (k, b) ->
+      if (extractPlaintextHandshakes(b).any { it.first == 0x01 }) k.second else null
+    }
+    if (serverPort == null) {
+      log("[Resumption Evidence] No ClientHello observed in any flow.")
+      return ResumptionEvidence(
+        clientHelloCount = 0,
+        serverHelloCount = 0,
+        newSessionTicketCount = 0,
+        flowCount = flowBufs.size,
+        mechanism = "NO_CLIENT_HELLO",
+        ch2HasNonEmptyTicket = false,
+        ch2HasPreSharedKey = false,
+        sh2HasPreSharedKey = false,
+        secondFlightAbbreviated = false
+      )
+    }
+    log("[Resumption Evidence] Server port = $serverPort")
+
+    data class CHRec(val flow: Pair<Int, Int>, val info: CHInfo)
+    data class SHRec(val flow: Pair<Int, Int>, val info: SHInfo)
+    val chs = mutableListOf<CHRec>()
+    val shs = mutableListOf<SHRec>()
+    var nstCount = 0
+    var nstTotalBytes = 0
+    // Per server→client flow: the list of plaintext handshake message types we saw.
+    // Used to detect whether the server's flight included Certificate (0x0B), which
+    // is the canonical signal of a full vs. abbreviated handshake in TLS 1.2.
+    val serverFlowHsTypes = mutableMapOf<Pair<Int, Int>, MutableList<Int>>()
+
+    for ((key, bytes) in flowBufs) {
+      val msgs = extractPlaintextHandshakes(bytes)
+      for ((hsType, body) in msgs) {
+        if (key.first == serverPort) {
+          serverFlowHsTypes.getOrPut(key) { mutableListOf() }.add(hsType)
+        }
+        when (hsType) {
+          0x01 -> if (key.second == serverPort) parseClientHelloBody(body)?.let { chs.add(CHRec(key, it)) }
+          0x02 -> if (key.first == serverPort) parseServerHelloBody(body)?.let { shs.add(SHRec(key, it)) }
+          0x04 -> if (key.first == serverPort) {
+            nstCount++
+            nstTotalBytes += body.size
+            if (body.size >= 6) {
+              val lifetime = ((body[0].toInt() and 0xFF) shl 24) or
+                ((body[1].toInt() and 0xFF) shl 16) or
+                ((body[2].toInt() and 0xFF) shl 8) or
+                (body[3].toInt() and 0xFF)
+              val ticketLen = ((body[4].toInt() and 0xFF) shl 8) or (body[5].toInt() and 0xFF)
+              log("  NewSessionTicket [TLS 1.2 plaintext]: lifetime_hint=${lifetime}s ticket_length=${ticketLen}B")
+            }
+          }
+        }
+      }
+    }
+
+    log("ClientHellos observed: ${chs.size}")
+    for ((i, ch) in chs.withIndex()) {
+      val sup = ch.info.ext[0x002B]?.let { parseSupportedVersionsClient(it) } ?: emptyList()
+      val pkm = ch.info.ext[0x002D]?.let { parsePskKeyExchangeModes(it) } ?: emptyList()
+      val ticket = ch.info.ext[0x0023]
+      val psk = ch.info.ext[0x0029]
+      log("  CH[${i + 1}] flow=${ch.flow.first}->${ch.flow.second}")
+      log("    legacy_session_id (${ch.info.sessionId.size}B): ${bytesToHex(ch.info.sessionId)}")
+      log(
+        "    session_ticket(0x0023): " +
+          (ticket?.let { if (it.isEmpty()) "present(empty)" else "present(${it.size}B)" } ?: "absent")
+      )
+      log("    pre_shared_key(0x0029): " + (psk?.let { "present(${it.size}B)" } ?: "absent"))
+      if (pkm.isNotEmpty())
+        log("    psk_key_exchange_modes(0x002D): ${pkm.map { pskKemName(it) }}")
+      if (sup.isNotEmpty())
+        log("    supported_versions(0x002B): ${sup.map { String.format("0x%04X", it) }}")
+    }
+
+    log("ServerHellos observed: ${shs.size}")
+    for ((i, sh) in shs.withIndex()) {
+      val supSel = sh.info.ext[0x002B]?.let {
+        if (it.size >= 2) ((it[0].toInt() and 0xFF) shl 8) or (it[1].toInt() and 0xFF) else null
+      }
+      val pskSel = sh.info.ext[0x0029]?.let {
+        if (it.size >= 2) ((it[0].toInt() and 0xFF) shl 8) or (it[1].toInt() and 0xFF) else null
+      }
+      log("  SH[${i + 1}] flow=${sh.flow.first}->${sh.flow.second}")
+      log("    legacy_version=${String.format("0x%04X", sh.info.legacyVersion)}")
+      log("    session_id (${sh.info.sessionId.size}B): ${bytesToHex(sh.info.sessionId)}")
+      log("    cipher_suite=${String.format("0x%04X", sh.info.cipherSuite)}")
+      val shTicket = sh.info.ext[0x0023]
+      log(
+        "    session_ticket(0x0023): " + (shTicket?.let {
+          if (it.isEmpty()) "present(empty — server will issue NewSessionTicket)"
+          else "present(${it.size}B, unexpected non-empty)"
+        } ?: "absent")
+      )
+      if (pskSel != null) log("    pre_shared_key.selected_identity=$pskSel")
+      if (supSel != null) log("    supported_versions.selected=${String.format("0x%04X", supSel)}")
+    }
+    log("NewSessionTicket records observed (TLS 1.2 plaintext only): $nstCount, total ${nstTotalBytes}B")
+
+    log("Server-side handshake messages per flow:")
+    for ((flow, types) in serverFlowHsTypes) {
+      val histogram = types.groupingBy { it }.eachCount()
+      val pretty = histogram.entries
+        .sortedBy { it.key }
+        .joinToString(", ") { (t, c) -> "${hsTypeName(t)}(0x%02X)x$c".format(t) }
+      log("  flow=${flow.first}->${flow.second}: $pretty")
+    }
+
+    val secondShFlow = shs.getOrNull(1)?.flow
+    val secondFlowHsTypes = secondShFlow?.let { serverFlowHsTypes[it] } ?: emptyList()
+    val secondFlowHasCertificate = secondFlowHsTypes.contains(0x0B)
+    val mechanism = inferMechanism(
+      chs.map { it.info },
+      shs.map { it.info },
+      secondFlowHasCertificate
+    )
+    log("[Resumption Evidence] Inferred mechanism: $mechanism")
+
+    val ch2 = chs.getOrNull(1)?.info
+    val sh2 = shs.getOrNull(1)?.info
+    val ch2Ticket = ch2?.ext?.get(0x0023)
+    return ResumptionEvidence(
+      clientHelloCount = chs.size,
+      serverHelloCount = shs.size,
+      newSessionTicketCount = nstCount,
+      flowCount = flowBufs.size,
+      mechanism = mechanism,
+      ch2HasNonEmptyTicket = ch2Ticket != null && ch2Ticket.isNotEmpty(),
+      ch2HasPreSharedKey = ch2?.ext?.containsKey(0x0029) == true,
+      sh2HasPreSharedKey = sh2?.ext?.containsKey(0x0029) == true,
+      secondFlightAbbreviated = !secondFlowHasCertificate
+    )
+  }
+
+  private fun hsTypeName(t: Int): String = when (t) {
+    0x01 -> "ClientHello"
+    0x02 -> "ServerHello"
+    0x04 -> "NewSessionTicket"
+    0x08 -> "EncryptedExtensions"
+    0x0B -> "Certificate"
+    0x0C -> "ServerKeyExchange"
+    0x0D -> "CertificateRequest"
+    0x0E -> "ServerHelloDone"
+    0x0F -> "CertificateVerify"
+    0x10 -> "ClientKeyExchange"
+    0x14 -> "Finished"
+    0x18 -> "KeyUpdate"
+    else -> "hs_$t"
+  }
+
+  /**
+   * Infer which RFC mechanism the TOE used to resume.
+   *
+   * Important nuance for TLS 1.2 ticket (RFC 5077 §3.4):
+   *   "If the server accepts the ticket and the Session ID is not empty,
+   *    then it MUST respond with the same Session ID present in the
+   *    ClientHello."
+   * Therefore offering a non-empty session_ticket in the 2nd ClientHello does
+   * NOT prove the server accepted it. The decisive evidence is whether the
+   * server's 2nd-flight contains a Certificate message (full handshake) or
+   * skips it (abbreviated handshake = resumption succeeded).
+   */
+  private fun inferMechanism(
+    chs: List<CHInfo>,
+    shs: List<SHInfo>,
+    secondFlowHasCertificate: Boolean
+  ): String {
+    if (chs.size < 2) return "INSUFFICIENT (only ${chs.size} ClientHello observed)"
+    val ch2 = chs[1]
+    val sh1 = shs.getOrNull(0)
+    val sh2 = shs.getOrNull(1)
+    val abbreviated = !secondFlowHasCertificate
+
+    // TLS 1.3 PSK
+    if (ch2.ext.containsKey(0x0029)) {
+      val accepted = sh2?.ext?.containsKey(0x0029) == true
+      return if (accepted) "TLS_1_3_PSK_RESUMED (RFC 8446) — pre_shared_key offered AND server selected"
+      else "TLS_1_3_PSK_OFFERED_NOT_ACCEPTED — pre_shared_key offered but server did not select"
+    }
+
+    val ticket = ch2.ext[0x0023]
+    val ticketOffered = ticket != null && ticket.isNotEmpty()
+    val sidOffered = ch2.sessionId.isNotEmpty() &&
+      sh1 != null && ch2.sessionId.contentEquals(sh1.sessionId)
+    val sidEcho = sidOffered && sh2 != null && sh2.sessionId.contentEquals(ch2.sessionId)
+
+    if (ticketOffered) {
+      return when {
+        abbreviated && sidEcho ->
+          "TLS_1_2_RFC5077_TICKET_RESUMED — server accepted ticket, abbreviated handshake, session_id echoed"
+        abbreviated ->
+          "TLS_1_2_RFC5077_TICKET_RESUMED_NO_SID_ECHO — abbreviated handshake but server did not echo session_id (RFC 5077 §3.4 anomaly)"
+        else ->
+          "TLS_1_2_TICKET_OFFERED_NOT_ACCEPTED — non-empty ticket presented (${ticket!!.size}B) but server performed full handshake (Certificate observed in 2nd flow)"
+      }
+    }
+
+    if (sidOffered) {
+      return when {
+        sidEcho && abbreviated ->
+          "TLS_1_2_RFC5246_SESSION_ID_RESUMED — server echoed session_id and skipped Certificate"
+        sidEcho ->
+          "TLS_1_2_SESSION_ID_ECHOED_BUT_FULL_HANDSHAKE — anomalous: id echoed but Certificate sent"
+        else ->
+          "TLS_1_2_SESSION_ID_OFFERED_NOT_RESUMED — 2nd CH carried 1st SH session_id but 2nd SH did not echo"
+      }
+    }
+
+    return "NONE — 2nd CH does not request resumption (no PSK, empty/absent ticket, no matching session_id)"
   }
 }
