@@ -446,8 +446,23 @@ log("HTTP response: $httpret")
 
 
 
-    // Start s_server on host
-    val pb = ProcessBuilder("openssl", "s_server", "-accept", port.toString(), "-cert", certFile.absolutePath, "-key", keyFile.absolutePath, "-www")
+    // Start s_server on host.
+    //   -tls1_2    : negotiate only TLS 1.2 (client may offer 1.3 but server rejects)
+    //   -no_ticket : disable RFC 5077 session tickets so the only resumption path
+    //                is the RFC 5246 session-ID cache. Without this, a second
+    //                connection would resume via tickets and the session-ID
+    //                evidence we are trying to capture would not appear.
+    //   (do NOT use -no_resume_ephemeral or -no_cache: those would also disable
+    //    session-ID caching, defeating the purpose of this test.)
+    val pb = ProcessBuilder(
+      "openssl", "s_server",
+      "-accept", port.toString(),
+      "-cert", certFile.absolutePath,
+      "-key", keyFile.absolutePath,
+      "-www",
+      "-tls1_2",
+      "-no_ticket"
+    )
     val serverProcess = pb.start()
     
     try {
