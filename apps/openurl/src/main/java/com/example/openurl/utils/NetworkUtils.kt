@@ -19,34 +19,77 @@ class NetworkUtils {
     /**
      *
      */
-    fun testHttpURLConnection(url_:String, p12Path: String? = null, p12Pass: String? = null):Int {
+    fun testHttpURLConnection(url_:String, p12Path: String? = null, p12Pass: String? = null, trustPath: String? = null, sslSocketFactory: javax.net.ssl.SSLSocketFactory? = null, hostnameVerifier: javax.net.ssl.HostnameVerifier? = null):Int {
 
       val url = URL(url_)
-      //System.setProperty("jdk.tls.client.protocols","TLSv1.3")
+      System.setProperty("jdk.tls.client.protocols","TLSv1.2")
 
       val connection: HttpURLConnection = url.openConnection() as HttpURLConnection
 
       if (connection is HttpsURLConnection) {
-          if (!p12Path.isNullOrBlank()) {
-              try {
-                  val keyStore = KeyStore.getInstance("PKCS12")
-                  val file = File(p12Path)
-                  if (file.exists()) {
-                      file.inputStream().use { ins ->
-                          keyStore.load(ins, p12Pass?.toCharArray())
+          if (sslSocketFactory != null) {
+              connection.sslSocketFactory = sslSocketFactory
+              if (hostnameVerifier != null) {
+                  connection.hostnameVerifier = hostnameVerifier
+              }
+              Log.d("NetworkUtils", "Using provided SSLSocketFactory")
+          } else {
+              var kmf: KeyManagerFactory? = null
+              if (!p12Path.isNullOrBlank()) {
+                  try {
+                      val keyStore = KeyStore.getInstance("PKCS12")
+                      val file = File(p12Path)
+                      if (file.exists()) {
+                          file.inputStream().use { ins ->
+                              keyStore.load(ins, p12Pass?.toCharArray())
+                          }
+                          kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
+                          kmf.init(keyStore, p12Pass?.toCharArray())
+                          Log.d("NetworkUtils", "Loaded P12 cert from $p12Path")
+                      } else {
+                          Log.e("NetworkUtils", "P12 file not found: $p12Path")
                       }
-                      val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
-                      kmf.init(keyStore, p12Pass?.toCharArray())
-                      val sc = SSLContext.getInstance("TLS")
-                      sc.init(kmf.keyManagers, null, null)
-                      connection.sslSocketFactory = sc.socketFactory
-                      Log.d("NetworkUtils", "Loaded P12 cert from $p12Path")
-                  } else {
-                      Log.e("NetworkUtils", "P12 file not found: $p12Path")
+                  } catch (e: Exception) {
+                      Log.e("NetworkUtils", "Failed to load P12 cert", e)
+                      throw e
                   }
-              } catch (e: Exception) {
-                  Log.e("NetworkUtils", "Failed to load P12 cert", e)
-                  throw e
+              }
+
+              var tmf: javax.net.ssl.TrustManagerFactory? = null
+              if (!trustPath.isNullOrBlank()) {
+                  try {
+                      val keyStore = KeyStore.getInstance(KeyStore.getDefaultType())
+                      keyStore.load(null, null)
+                      val certFactory = java.security.cert.CertificateFactory.getInstance("X.509")
+                      val file = File(trustPath)
+                      if (file.exists()) {
+                          file.inputStream().use { ins ->
+                              val cert = certFactory.generateCertificate(ins)
+                              keyStore.setCertificateEntry("ca", cert)
+                          }
+                          tmf = javax.net.ssl.TrustManagerFactory.getInstance(javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm())
+                          tmf.init(keyStore)
+                          Log.d("NetworkUtils", "Loaded trust cert from $trustPath")
+                      } else {
+                          Log.e("NetworkUtils", "Trust cert file not found: $trustPath")
+                      }
+                  } catch (e: Exception) {
+                      Log.e("NetworkUtils", "Failed to load trust cert", e)
+                      throw e
+                  }
+              }
+
+              if (kmf != null || tmf != null) {
+                  val sc = SSLContext.getInstance("TLS")
+                  sc.init(kmf?.keyManagers, tmf?.trustManagers, null)
+                  connection.sslSocketFactory = sc.socketFactory
+                  
+                  if (tmf != null) {
+                      connection.hostnameVerifier = javax.net.ssl.HostnameVerifier { hostname, session ->
+                          hostname == "localhost" || hostname == "127.0.0.1"
+                      }
+                      Log.d("NetworkUtils", "Set custom HostnameVerifier for localhost")
+                  }
               }
           }
       }
@@ -70,6 +113,9 @@ class NetworkUtils {
           result.append(line)
         }
         println(result)
+        try {
+            Thread.sleep(500) // Wait for NewSessionTicket in TLS 1.3
+        } catch (e: Exception) {}
         bufReader.close();
         inReader.close();
         ins.close();

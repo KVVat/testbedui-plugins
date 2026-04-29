@@ -433,6 +433,46 @@ log("HTTP response: $httpret")
     analyzePcap(pcapPath, expectAlert = false, expectResumption = true, expectTls13Resumption = true)
   }
 
+  @Test
+  fun testSessionResumptionWithSServer() {
+    val serial = adb.deviceSerial
+    val port = 4433
+    
+    val certFile = File("/Users/wkouki/AndroidStudioProjects/testbedui-plugins/apps/openurl/resources/cert.pem")
+    val keyFile = File("/Users/wkouki/AndroidStudioProjects/testbedui-plugins/apps/openurl/resources/key.pem")
+    
+    Assert.assertTrue("Cert file not found in resources", certFile.exists())
+    Assert.assertTrue("Key file not found in resources", keyFile.exists())
+
+
+
+    // Start s_server on host
+    val pb = ProcessBuilder("openssl", "s_server", "-accept", port.toString(), "-cert", certFile.absolutePath, "-key", keyFile.absolutePath, "-www")
+    val serverProcess = pb.start()
+    
+    try {
+      Thread.sleep(2000) // Give it time to start
+
+      // Adb reverse
+      val reverseProc = Runtime.getRuntime().exec("adb -s $serial reverse tcp:$port tcp:$port")
+      reverseProc.waitFor()
+
+      val hostName = "https://localhost:$port/"
+      val resp = tlsCapturePacket("resumption_sserver", hostName, trustPath = certFile.absolutePath, resumption = true)
+      
+      val httpret = resp.httpResponse
+      log("HTTP response: $httpret")
+      errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
+
+      val pcapPath = resp.pcapPath
+      analyzePcap(pcapPath, expectAlert = false, expectResumption = true)
+      
+    } finally {
+      serverProcess.destroy()
+      Runtime.getRuntime().exec("adb -s $serial reverse --remove tcp:$port").waitFor()
+    }
+  }
+
   // NOTE: FCS_TLSC_EXT.3 (Downgrade Protection) requires a custom server that sends
   // the downgrade indicator in Server Random. Since badssl.com does not support this,
   // it is not tested here. A dedicated test server or container would be needed.
@@ -844,17 +884,36 @@ if (!expectResumption) {
     }
   }
 
-  private fun tlsCapturePacket(testlabel:String, testurl:String, p12Path: String? = null, p12Pass: String? = null, resumption: Boolean = false, type: String = "http", forceTls12: Boolean = false): org.example.plugin.utils.TlsResult {
+  private fun tlsCapturePacket(testlabel:String, testurl:String, p12Path: String? = null, p12Pass: String? = null, resumption: Boolean = false, type: String = "http", forceTls12: Boolean = false, trustPath: String? = null): org.example.plugin.utils.TlsResult {
     var pcap: Path = Paths.get("/")
     var httpResp: String = ""
     var workerLogsStr: String = ""
     val serial = adb.deviceSerial
 
     runBlocking {
-      val browserApk = File(JUnitBridge.resourceDir, "openurl-debug.apk")
+      val browserApk = File("/Users/wkouki/AndroidStudioProjects/testbedui-plugins/apps/openurl/build/outputs/apk/debug/openurl-debug.apk")
       val ret = AdamUtils.installApk(client, serial, browserApk, true)
       Assert.assertTrue("Failed to install openurl app: ${ret}", ret.startsWith("Success"))
       appInstalled = true
+
+      if (!trustPath.isNullOrBlank()) {
+          val certFile = File(trustPath)
+          if (certFile.exists()) {
+              val channel = client.execute(
+                com.malinskiy.adam.request.sync.v1.PushFileRequest(certFile, "/sdcard/cert.pem"),
+                this,
+                serial = serial
+              )
+              for (progress in channel) {}
+              
+              client.execute(ShellCommandRequest("su 0 mkdir -p /data/data/com.example.openurl/files/"), serial)
+              client.execute(ShellCommandRequest("su 0 cp /sdcard/cert.pem /data/data/com.example.openurl/files/cert.pem"), serial)
+              client.execute(ShellCommandRequest("su 0 chmod 666 /data/data/com.example.openurl/files/cert.pem"), serial)
+              log("Pushed trust cert to device: /data/data/com.example.openurl/files/cert.pem")
+          } else {
+              log("Trust cert file not found on host: $trustPath")
+          }
+      }
 
       val tcpdumpJob = launch(Dispatchers.IO) {
           try {
@@ -883,6 +942,9 @@ log("Launching app with URL: $testurl")
       }
       if (!p12Pass.isNullOrBlank()) {
           cmd += " -e p12pass '$p12Pass'"
+      }
+      if (!trustPath.isNullOrBlank()) {
+          cmd += " -e trustpath /data/data/com.example.openurl/files/cert.pem"
       }
       if (resumption) {
           cmd += " --ez resumption true"

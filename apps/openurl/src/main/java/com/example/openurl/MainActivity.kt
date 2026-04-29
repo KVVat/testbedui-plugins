@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     val type_ = intent.getStringExtra("type")
     val p12Path = intent.getStringExtra("p12path")
     val p12Pass = intent.getStringExtra("p12pass")
+    val trustPath = intent.getStringExtra("trustpath")
     val resumption = intent.getBooleanExtra("resumption", false)
     if(!type_.isNullOrBlank()){
       type = type_
@@ -54,6 +55,7 @@ class MainActivity : AppCompatActivity() {
         .putString("type",type)
         .putString("p12path", p12Path)
         .putString("p12pass", p12Pass)
+        .putString("trustpath", trustPath)
         .putBoolean("resumption", resumption)
         .build()
 

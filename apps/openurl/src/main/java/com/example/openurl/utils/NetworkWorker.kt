@@ -20,6 +20,7 @@ class NetworkWorker (context: Context,
     val type:String = inputData.getString("type")!!;
     val p12Path = inputData.getString("p12path")
     val p12Pass = inputData.getString("p12pass")
+    val trustPath = inputData.getString("trustpath")
 
     var ret: Int = 0;
     //setProgress(firstUpdate)
@@ -31,11 +32,50 @@ class NetworkWorker (context: Context,
     var msg = "None"
     try {
       if (type.equals("http")) {
-        ret = NetworkUtils.testHttpURLConnection(url, p12Path, p12Pass)
+        var sslSocketFactory: javax.net.ssl.SSLSocketFactory? = null
+        var hostnameVerifier: javax.net.ssl.HostnameVerifier? = null
+
+        // Pre-create SSLContext if we need custom trust or client cert
+        if (!trustPath.isNullOrBlank() || !p12Path.isNullOrBlank()) {
+            val sc = javax.net.ssl.SSLContext.getInstance("TLSv1.2")
+            var kmf: javax.net.ssl.KeyManagerFactory? = null
+            if (!p12Path.isNullOrBlank()) {
+                val keyStore = java.security.KeyStore.getInstance("PKCS12")
+                java.io.File(p12Path).inputStream().use { ins ->
+                    keyStore.load(ins, p12Pass?.toCharArray())
+                }
+                kmf = javax.net.ssl.KeyManagerFactory.getInstance(javax.net.ssl.KeyManagerFactory.getDefaultAlgorithm())
+                kmf.init(keyStore, p12Pass?.toCharArray())
+            }
+            
+            var tmf: javax.net.ssl.TrustManagerFactory? = null
+            if (!trustPath.isNullOrBlank()) {
+                val keyStore = java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType())
+                keyStore.load(null, null)
+                val certFactory = java.security.cert.CertificateFactory.getInstance("X.509")
+                java.io.File(trustPath).inputStream().use { ins ->
+                    val cert = certFactory.generateCertificate(ins)
+                    keyStore.setCertificateEntry("ca", cert)
+                }
+                tmf = javax.net.ssl.TrustManagerFactory.getInstance(javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm())
+                tmf.init(keyStore)
+            }
+            
+            sc.init(kmf?.keyManagers, tmf?.trustManagers, null)
+            sslSocketFactory = sc.socketFactory
+            
+            if (tmf != null) {
+                hostnameVerifier = javax.net.ssl.HostnameVerifier { hostname, session ->
+                    hostname == "localhost" || hostname == "127.0.0.1"
+                }
+            }
+        }
+
+        ret = NetworkUtils.testHttpURLConnection(url, p12Path, p12Pass, trustPath, sslSocketFactory, hostnameVerifier)
         if (resumption && ret == 200) {
           setProgressAsync(Data.Builder().putString("progress","... Attempting Resumption").build())
-          // Second connection for resumption
-          ret = NetworkUtils.testHttpURLConnection(url, p12Path, p12Pass)
+          // Second connection for resumption - REUSE the sslSocketFactory!
+          ret = NetworkUtils.testHttpURLConnection(url, p12Path, p12Pass, trustPath, sslSocketFactory, hostnameVerifier)
         }
       } else if (type.equals("okhttp3")) {
         ret = NetworkUtils.testOkHttp3(url)
