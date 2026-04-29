@@ -438,11 +438,11 @@ log("HTTP response: $httpret")
     val serial = adb.deviceSerial
     val port = 4433
     
-    val certFile = File("/Users/wkouki/AndroidStudioProjects/testbedui-plugins/apps/openurl/resources/cert.pem")
-    val keyFile = File("/Users/wkouki/AndroidStudioProjects/testbedui-plugins/apps/openurl/resources/key.pem")
-    
-    Assert.assertTrue("Cert file not found in resources", certFile.exists())
-    Assert.assertTrue("Key file not found in resources", keyFile.exists())
+    val certFile = File(JUnitBridge.resourceDir, "cert.pem")
+    val keyFile = File(JUnitBridge.resourceDir, "key.pem")
+
+    Assert.assertTrue("Cert file not found in resources: ${certFile.absolutePath}", certFile.exists())
+    Assert.assertTrue("Key file not found in resources: ${keyFile.absolutePath}", keyFile.exists())
 
 
 
@@ -906,7 +906,7 @@ if (!expectResumption) {
     val serial = adb.deviceSerial
 
     runBlocking {
-      val browserApk = File("/Users/wkouki/AndroidStudioProjects/testbedui-plugins/apps/openurl/build/outputs/apk/debug/openurl-debug.apk")
+      val browserApk = File(JUnitBridge.resourceDir, "openurl-debug.apk")
       val ret = AdamUtils.installApk(client, serial, browserApk, true)
       Assert.assertTrue("Failed to install openurl app: ${ret}", ret.startsWith("Success"))
       appInstalled = true

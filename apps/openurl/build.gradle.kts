@@ -68,7 +68,28 @@ tasks.register<Copy>("copyApkToCore") {
     }
 }
 
-// Hook the copy task to run automatically after build
+// Stage TLS test fixtures (certs / keys / p12 bundles) used by host-side
+// tests such as testSessionResumptionWithSServer (cert.pem/key.pem) and
+// testMutualAuthentication (badssl.com-client.p12). These are loaded via
+// JUnitBridge.resourceDir which resolves to the testbed-core resources dir.
+tasks.register<Copy>("copyTestFixturesToCore") {
+    description = "Copies TLS test fixtures (certs/keys) to the TestBed Core resources directory."
+
+    from("${projectDir}/resources")
+    include("cert.pem", "key.pem", "badssl.com-client.p12", "badssl.com-client.pem", "wildcard-rsa2048.crt")
+
+    val coreResourcesDir = file("${rootProject.projectDir}/../testbed-core/composeApp/resources")
+    if (!coreResourcesDir.exists()) {
+        coreResourcesDir.mkdirs()
+    }
+    into(coreResourcesDir)
+
+    doLast {
+        println("✅ Test fixtures copied to: ${coreResourcesDir.absolutePath}")
+    }
+}
+
+// Hook the copy tasks to run automatically after build
 tasks.named("assemble") {
-    finalizedBy("copyApkToCore")
+    finalizedBy("copyApkToCore", "copyTestFixturesToCore")
 }

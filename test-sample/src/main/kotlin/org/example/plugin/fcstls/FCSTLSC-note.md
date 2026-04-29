@@ -181,7 +181,18 @@ These tests actively simulate malicious or non-compliant server behavior to veri
   | Inferred mechanism | `TLS_1_2_RFC5077_TICKET_RESUMED_NO_SID_ECHO` |
 * **Compliance interpretation:** From the TOE's perspective the abbreviated handshake completed → RFC 5077 ticket-based resumption is **dynamically verified**. The "no_sid_echo" suffix flags a server-side RFC 5077 §3.4 anomaly (badssl/nginx returns empty SH session_id despite the 2nd CH carrying a non-empty session_id). This anomaly is server-side, not TOE-side, and does not affect FCS_TLSC_EXT.5.1 evidence quality for the client.
 * **Documented capability — TLS 1.3 PSK (`testSessionResumptionTls13`):** A separate test connects twice to `https://ipv4.google.com/` (TLS 1.3 endpoint) and uses the same analyzer to detect `pre_shared_key` (0x0029) presence in the 2nd ClientHello AND in the 2nd ServerHello. Soft assertions only because external endpoints may not always issue tickets / accept resumption (load-balancer state, rate-limiting). Successful runs register the `FCS_TLSC_EXT.5.1/PSK` checklist entry as documented capability — note that the ST does not claim the "PSK and tickets in accordance with RFC 8446" selection, so this entry is evidence of capability, not a claimed SFR.
-* **TLS 1.2 Session ID (RFC 5246):** Not currently exercised. The badssl:1012 server prefers ticket-based resumption and returns an empty session_id in the 2nd ServerHello, suppressing the session-ID path. To strictly verify session-ID resumption, a dedicated mock server (with `ssl_session_tickets off`) would be required. Documented as future work; not blocking since session ID is not separately claimed in the ST beyond ticket-based resumption.
+* **Evidence — TLS 1.2 RFC 5246 Session ID (`testSessionResumptionWithSServer`):** A host-side `openssl s_server` is launched with `-tls1_2 -no_ticket` to force the negotiation onto the pure session-ID cache path (TLS 1.3 disabled, RFC 5077 tickets disabled). Two consecutive HTTPS connections from the device hit this server via `adb reverse tcp:4433`. The captured PCAP yielded:
+  | Capture event | Observation |
+  |---|---|
+  | 1st connection server flight | ServerHello + Certificate + ServerKeyExchange + ServerHelloDone (full handshake) |
+  | 1st connection ServerHello | `legacy_version=0x0303`, `session_id` = 32B `c85eb1a9…b834942`, `cipher_suite=0xC02F` |
+  | 2nd connection ClientHello | `legacy_session_id` = same 32B `c85eb1a9…b834942` (cached from 1st SH), no `pre_shared_key` |
+  | 2nd connection ServerHello | server **echoed** the same 32B `session_id` (RFC 5246 §7.4.1.2 resumption-accept signal), `session_ticket` extension absent |
+  | 2nd connection server flight | **ServerHello only** (no Certificate / SKE / SHD) |
+  | NewSessionTicket records | 0 (confirms `-no_ticket` effective; ticket path is excluded) |
+  | Inferred mechanism | `TLS_1_2_RFC5246_SESSION_ID_RESUMED — server echoed session_id and skipped Certificate` |
+
+  This is direct, RFC-textbook evidence that the TOE (Conscrypt) caches the server-assigned `session_id` from a prior TLS 1.2 handshake and presents it on the next `ClientHello` to drive an abbreviated handshake. Combined with the RFC 5077 ticket and TLS 1.3 PSK evidence above, all three resumption mechanisms named in `FCS_TLSC_EXT.5.1` are dynamically verified.
 
 ### **V. Current Verification Status**
 
@@ -235,6 +246,7 @@ To address the dynamic behavior of the Android TLS implementation (Conscrypt), w
 | `psk_key_exchange_modes` (`0x002D`) | FCS_TLSC_EXT.6.1 | `testTls13Support` | **Verified** | Only required and present in TLS 1.3 handshakes. |
 | `session_ticket` (`0x0023`) | FCS_TLSC_EXT.5.1 | `testSessionResumption` | **Verified (Static + Dynamic)** | Static: presence in ClientHello. Dynamic: 2nd-flight Certificate absence proves abbreviated handshake (RFC 5077). |
 | `session_ticket` (`0x0023`) (Absence) | FCS_TLSC_EXT.5.1 | `testInvalidHost`, etc. | **Observed** | Conscrypt may omit it in non-resumption handshakes. Logged as warning. |
+| `legacy_session_id` (RFC 5246) | FCS_TLSC_EXT.5.1 | `testSessionResumptionWithSServer` | **Verified (Dynamic)** | Host-side `s_server -tls1_2 -no_ticket` forces session-ID cache path. CH[2].legacy_session_id == SH[1].session_id (32B match), SH[2] echoes the same ID, server 2nd flight is ServerHello-only, NewSessionTicket=0. Direct RFC 5246 §7.4.1.2 evidence. |
 | `pre_shared_key` (`0x0029`) | FCS_TLSC_EXT.5.1/PSK | `testSessionResumptionTls13` | **Documented Capability** | TLS 1.3 PSK resumption (RFC 8446). Soft check against ipv4.google.com; ST does not claim the "PSK and tickets" selection so this is evidence of capability only. |
 | `early_data` (`0x002A`) (Absence) | FCS_TLSC_EXT.6.2 | `testTls13Support` | **Verified** | Confirmed to be absent in TLS 1.3 ClientHello. |
 
