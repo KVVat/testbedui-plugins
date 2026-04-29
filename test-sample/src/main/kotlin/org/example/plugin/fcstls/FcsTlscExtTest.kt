@@ -924,8 +924,10 @@ log("Starting tcpdump in coroutine...")
               client.execute(ShellCommandRequest("su 0 tcpdump -i any -U -w /data/local/tmp/traffic.pcap"), serial)
 log("tcpdump coroutine finished")
 
+
           } catch (e: Exception) {
 log("tcpdump coroutine exception: ${e.message}")
+
 
           }
       }
@@ -935,6 +937,7 @@ log("tcpdump coroutine exception: ${e.message}")
       Thread.sleep(500)
       
 log("Launching app with URL: $testurl")
+
 
       var cmd = "am start -a android.intent.action.VIEW -n com.example.openurl/.MainActivity -e openurl $testurl"
       if (!p12Path.isNullOrBlank()) {
@@ -960,6 +963,7 @@ log("Launching app with URL: $testurl")
       if (res != null) {
 log("worker@return => ${res.text}")
 
+
         val text = res.text
         val marker = "worker@return:"
         val index = text.lastIndexOf(marker)
@@ -970,6 +974,7 @@ log("worker@return => ${res.text}")
         }
       } else {
 log("we can't grab the return value from worker.")
+
 
         httpResp = "Error: timeout waiting for logcat"
       }

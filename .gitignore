@@ -26,7 +26,6 @@ local.properties
 
 # Keystore files
 *.jks
-*.keystore
 
 # Environment variables
 .env
