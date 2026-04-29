@@ -398,6 +398,7 @@ log("HTTP response: $httpret")
     val httpret = resp.httpResponse
 log("HTTP response: $httpret")
 
+
     errs.checkThat(a.msg("HTTP response should start with 200"), httpret.startsWith("200"), IsEqual(true))
     
     val pcapPath = resp.pcapPath

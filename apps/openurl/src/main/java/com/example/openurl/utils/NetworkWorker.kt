@@ -20,8 +20,6 @@ class NetworkWorker (context: Context,
     val type:String = inputData.getString("type")!!;
     val p12Path = inputData.getString("p12path")
     val p12Pass = inputData.getString("p12pass")
-    val forceTls12 = inputData.getBoolean("forceTls12", false)
-    Log.d("NetworkWorker", "forceTls12: $forceTls12, type: $type [VER: 2026-04-24-05]")
 
     var ret: Int = 0;
     //setProgress(firstUpdate)
@@ -40,7 +38,7 @@ class NetworkWorker (context: Context,
           ret = NetworkUtils.testHttpURLConnection(url, p12Path, p12Pass)
         }
       } else if (type.equals("okhttp3")) {
-        ret = NetworkUtils.testOkHttp3(url, p12Path, p12Pass, forceTls12)
+        ret = NetworkUtils.testOkHttp3(url)
       }
     } catch (ex:Exception){
       Log.e("worker@", "Network task failed: ${ex.message}", ex)
