@@ -121,9 +121,11 @@ object AdamUtils {
     suspend fun clearLogcat(adb: AdbDeviceRule) {
         adb.adb.execute(ShellCommandRequest("logcat -c"), adb.deviceSerial)
     }
-    suspend fun waitLogcatLine(waitTime: Int, tagWait: String, adb: AdbDeviceRule): LogcatResult? {
+    suspend fun waitLogcatLine(waitTime: Int, tagWait: String, adb: AdbDeviceRule, clear: Boolean = true, contentFilter: String? = null): LogcatResult? {
         org.example.project.JUnitBridge.logging?.invoke("Waiting for logcat line: $tagWait", org.example.project.TestLogLevel.INFO)
-        clearLogcat(adb)
+        if (clear) {
+            clearLogcat(adb)
+        }
         var result: LogcatResult? = null
         withTimeoutOrNull(waitTime * 100L) {
             //val deviceTimezoneString = adb.adb.execute(com.malinskiy.adam.request.prop.GetSinglePropRequest("persist.sys.timezone"), adb.deviceSerial).trim()
@@ -131,7 +133,7 @@ object AdamUtils {
             val request = ChanneledLogcatRequest(since = null, modes = listOf())
             val channel = adb.adb.execute(request, this, adb.deviceSerial)
             for (line in channel) {
-                if (line.contains(tagWait)) {
+                if (line.contains(tagWait) && (contentFilter == null || line.contains(contentFilter))) {
                     println("[AdamUtils] matched logcat line found: $line")
                     org.example.project.JUnitBridge.logging?.invoke("Matched logcat line found: $tagWait", org.example.project.TestLogLevel.INFO)
                     result = LogcatResult(tagWait, line)

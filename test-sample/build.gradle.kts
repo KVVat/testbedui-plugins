@@ -2,7 +2,7 @@ plugins {
     kotlin("jvm")
 }
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }
 repositories {
     google()
@@ -58,14 +58,14 @@ tasks.jar {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions {
         // 本体側が17なら17、21なら21にする
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
     }
 }
 tasks.register("generateTestList") {

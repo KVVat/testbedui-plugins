@@ -26,8 +26,9 @@ import org.junit.rules.TestWatcher
 import org.example.project.JUnitBridge
 import java.io.File
 import java.nio.file.Paths
+import org.example.plugin.utils.UiDevice
+import org.example.plugin.utils.By
 
-@Ignore("Need to integration. Test is for MDFPP3.2")
 @SFR("FCS_CKH_EXT.1/High-Credentials", """
   FCS_CKH_EXT.1/Low
 
@@ -90,19 +91,17 @@ class FcsCkhExt1HighCredentialsTest {
   fun testSetPassCode() {
     runBlocking {
 
-      UIAutomatorSession(adb,"com.android.Settings").run {
-        turnon()
-        showSettings("security")
-        delay(1000)
-        update()
-        copyxml(Paths.get("../results/out3.xml"))
-        println(activePackage)
-        //freezeRotation()
+      val device = UiDevice(adb)
+      device.pressKeyCode("KEYCODE_MENU")
+      device.pressBack()
+      client.execute(ShellCommandRequest("am start -a android.settings.SECURITY_SETTINGS"), adb.deviceSerial)
+      delay(1000)
+      val obj = device.findObject(By.pkg("com.android.settings"))
+      println("Settings package found: ${obj != null}")
 
 
         //listAllClickables()
         //unfreezeRotation()
-      }
     }
   }
 
@@ -116,27 +115,12 @@ class FcsCkhExt1HighCredentialsTest {
       val ret = AdamUtils.installApk(client, adb.deviceSerial, file_apk)
       assertTrue(ret.startsWith("Success"))
 
-      UIAutomatorSession(adb,TEST_PACKAGE).run {
-
-        //turnoff()
-        //turnon()
-
-        copyxml(Paths.get("../results/out.xml"))
-
-        val r = shellexec("am start -n ${TEST_PACKAGE}/${TEST_PACKAGE}.MainActivity"+
-                " -e authRequired true"+
-                " -e unlockDeviceRequired true"+
-                " -e useBiometricAuth true"+
-                " -e tryBackgroundKeyChainAccess false")
-        println(r)
-        delay(1500)
-
-        if(update()){
-          copyxml(Paths.get("../results/out2.xml"))
-        } else {
-          println("update failure")
-        }
-      }
+      val device = UiDevice(adb)
+      client.execute(ShellCommandRequest("am start -n ${TEST_PACKAGE}/${TEST_PACKAGE}.MainActivity -e authRequired true -e unlockDeviceRequired true -e useBiometricAuth true -e tryBackgroundKeyChainAccess false"), adb.deviceSerial)
+      delay(1500)
+      
+      val obj = device.findObject(By.pkg(TEST_PACKAGE))
+      println("App package found: ${obj != null}")
     }
 
   }
@@ -165,13 +149,12 @@ class FcsCkhExt1HighCredentialsTest {
 
       delay(1000)
 
-      UIAutomatorSession(adb,TEST_PACKAGE).run {
-        copyxml(Paths.get("../results/out.xml"))
-        tap("com.example.encryption:id/auth_test_button")
-        delay(1000)
-        shellexec("input text $PASSWORD")
-        shellexec("input keyevent ENTER")
-      }
+      val device = UiDevice(adb)
+      val button = device.findObject(By.res("com.example.encryption:id/auth_test_button"))
+      assert(button != null) { "Button not found!" }
+      button?.click()
+      delay(1000)
+      device.inputText(PASSWORD)
     }
   }
 }

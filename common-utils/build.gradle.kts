@@ -2,7 +2,7 @@ plugins {
     kotlin("jvm")
 }
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }
 repositories {
     google()
@@ -18,17 +18,18 @@ dependencies {
     implementation("com.malinskiy.adam:adam:0.5.10")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     implementation("org.dom4j:dom4j:2.1.4")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2")
 }
 
 // Java/Kotlinのターゲット設定を17に統一
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions {
         // 本体側が17なら17、21なら21にする
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
     }
 }

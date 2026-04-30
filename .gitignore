@@ -29,7 +29,7 @@ local.properties
 
 # Environment variables
 .env
-
+adb_key.*
 repomix*
 repomix-patch.txt
 

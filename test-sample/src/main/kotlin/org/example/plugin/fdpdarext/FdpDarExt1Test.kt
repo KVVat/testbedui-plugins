@@ -14,6 +14,7 @@ import org.example.plugin.utils.TestAssertLogger
 import org.example.plugin.utils.logi
 import org.example.project.adb.rules.AdbDeviceRule
 import org.hamcrest.MatcherAssert
+import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.core.StringStartsWith
 import org.junit.After
 import org.junit.Assert
@@ -62,15 +63,17 @@ class FdpDarExt1Test {
   fun setup() {
       runBlocking {
           logi("Setting up ${testName.methodName}...")
-          try { AdamUtils.uninstallApk(client, serial, TEST_PACKAGE) } catch (e: Exception) {}
+          try { client.execute(ShellCommandRequest("input keyevent KEYCODE_WAKEUP"), adb.deviceSerial) } catch (e: Exception) {}
+          try { client.execute(ShellCommandRequest("svc power stayon true"), adb.deviceSerial) } catch (e: Exception) {}
+          try { client.execute(ShellCommandRequest("am force-stop $TEST_PACKAGE"), adb.deviceSerial) } catch (e: Exception) {}
       }
   }
 
   @After
   fun teardown() {
       runBlocking {
-          logi("Setting up ${testName.methodName}...")
-          try { AdamUtils.uninstallApk(client, serial, TEST_PACKAGE) } catch (e: Exception) {}
+          logi("Tearing down ${testName.methodName}...")
+          // try { AdamUtils.uninstallApk(client, serial, TEST_PACKAGE) } catch (e: Exception) {}
       }
   }
 
@@ -79,7 +82,7 @@ class FdpDarExt1Test {
       runBlocking {
           //install file
 
-          val ret = AdamUtils.installApk(client, adb.deviceSerial, TEST_APK)
+          val ret = AdamUtils.installApk(client, adb.deviceSerial, TEST_APK, reinstall = true)
           Assert.assertTrue(ret.startsWith("Success"))
           MatcherAssert.assertThat(
               assert.msg("Verify Install apk v1 (expect=Success)"),
@@ -88,37 +91,43 @@ class FdpDarExt1Test {
 
           //launch application to write a file into the storage
           //am start -a com.example.ACTION_NAME -n com.package.name/com.package.name.ActivityName
+          AdamUtils.clearLogcat(adb)
           async {
               client.execute(
-                  ShellCommandRequest("am start ${TEST_PACKAGE}/${TEST_PACKAGE}.MainActivity"),
+                  ShellCommandRequest("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p $TEST_PACKAGE"),
                   adb.deviceSerial
               )
           }
           var result: AdamUtils.LogcatResult? =
-              AdamUtils.waitLogcatLine(50, "Info/FCS_CKH_EXT_TEST", adb)
+              AdamUtils.waitLogcatLine(200, "FCS_CKH_EXT_TEST", adb, clear = false, contentFilter = "Booted")
           //assertThat { result }.isNotNull()
           errs.checkThat(
               assert.msg("Check The application booted.(It prepares directboot.)"),
               result!!.text,
-              StringStartsWith("Booted")
+              containsString("Booted")
           )
           Thread.sleep(1000 * 5)
+          // NOTE: On Android 17, ADB connection in BFU (Before First Unlock) state
+          // may be restricted. On devices with this restriction, manual unlock after reboot
+          // is required to let ADB connect and read logs.
           //(Require)Reboot Device
           //1. We expect the bootloader of the device is unlocked.
           //2. Users need to relaunch the device quickly
+          AdamUtils.clearLogcat(adb)
           try {
               client.execute(ShellCommandRequest("svc power reboot"), adb.deviceSerial)
           } catch (e: Exception) {
               logi("Reboot signal sent. (Expected ADB disconnection: ${e.message})")
           }
           Thread.sleep(1000*5)
-          adb.waitBoot()
+          adb.waitBoot(180_000L)
           //Thread.sleep(1000 * 10)
           logi("** Reconnected **")
-          result = AdamUtils.waitLogcatLine(500, "FCS_CKH_EXT_TEST", adb)
+          result = AdamUtils.waitLogcatLine(500, "FCS_CKH_EXT_TEST", adb, clear = false, contentFilter = "des=Success,ces=Failed")
           if (result == null) {
               result = AdamUtils.LogcatResult("", "<null>")
           }
+          logi("Matched line text: ${result.text}")
 
           // Evaluates below behaviours. Application will be triggered by LOCKED_BOOT_COMPLETED action.
           // 1. Check if we can access to the DES(Device Encrypted Storage)
@@ -126,7 +135,7 @@ class FdpDarExt1Test {
           errs.checkThat(
               assert.msg("Check if we can access to the DES/We can not accees to CES."),
               result.text,
-              StringStartsWith("des=Success,ces=Failed")
+              containsString("des=Success,ces=Failed")
           )
       }
   }
