@@ -110,6 +110,9 @@ class FdpDarExt1Test {
           // NOTE: On Android 17, ADB connection in BFU (Before First Unlock) state
           // may be restricted. On devices with this restriction, manual unlock after reboot
           // is required to let ADB connect and read logs.
+          // 2. Users need to unlock the device quickly
+          AdamUtils.clearLogcat(adb)
+
           //(Require)Reboot Device
           //1. We expect the bootloader of the device is unlocked.
           //2. Users need to relaunch the device quickly
