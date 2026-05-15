@@ -105,7 +105,7 @@ class FiaX509RevocationTest {
     fun testOcspCnsaValid() {
         log("Starting testOcspCnsaValid with CNSA server...")
         val hostName = "https://127.0.0.1:4445"
-        val trustPath = "/Users/wkouki/AndroidStudioProjects/testbedui-plugins/test-sample/src/main/resources/revocation/cnsa/root-ca.crt"
+        val trustPath = File(org.example.project.JUnitBridge.resourceDir, "revocation/cnsa/root-ca.crt").absolutePath
         val resp = niapsecCapturePacket("custom_cnsa_valid", hostName, trustPath)
         val httpret = resp.httpResponse
         log("HTTP response: $httpret")
@@ -117,7 +117,7 @@ class FiaX509RevocationTest {
     fun testOcspEcdsaValid() {
         log("Starting testOcspEcdsaValid with ECDSA server...")
         val hostName = "https://127.0.0.1:4446"
-        val trustPath = "/Users/wkouki/AndroidStudioProjects/testbedui-plugins/test-sample/src/main/resources/revocation/ecdsa/root-ca.crt"
+        val trustPath = File(org.example.project.JUnitBridge.resourceDir, "revocation/ecdsa/root-ca.crt").absolutePath
         val resp = niapsecCapturePacket("custom_ecdsa_valid", hostName, trustPath)
         val httpret = resp.httpResponse
         log("HTTP response: $httpret")
@@ -129,7 +129,7 @@ class FiaX509RevocationTest {
     fun testOcspSha512Valid() {
         log("Starting testOcspSha512Valid with SHA512 server...")
         val hostName = "https://127.0.0.1:4447"
-        val trustPath = "/Users/wkouki/AndroidStudioProjects/testbedui-plugins/test-sample/src/main/resources/revocation/sha512/root-ca.crt"
+        val trustPath = File(org.example.project.JUnitBridge.resourceDir, "revocation/sha512/root-ca.crt").absolutePath
         val resp = niapsecCapturePacket("custom_sha512_valid", hostName, trustPath)
         val httpret = resp.httpResponse
         log("HTTP response: $httpret")
@@ -141,7 +141,7 @@ class FiaX509RevocationTest {
     fun testOcspSha384OldCaValid() {
         log("Starting testOcspSha384OldCaValid with SHA384 (Old CA) server...")
         val hostName = "https://127.0.0.1:4448"
-        val trustPath = "/Users/wkouki/AndroidStudioProjects/testbedui-plugins/test-sample/src/main/resources/revocation/root-ca.crt"
+        val trustPath = File(org.example.project.JUnitBridge.resourceDir, "revocation/root-ca.crt").absolutePath
         val resp = niapsecCapturePacket("custom_sha384_old_ca_valid", hostName, trustPath)
         val httpret = resp.httpResponse
         log("HTTP response: $httpret")
@@ -183,7 +183,7 @@ class FiaX509RevocationTest {
             Thread.sleep(2000) // Give tcpdump time to start
 
             // Push trust cert to device
-            val trustPath = customTrustPath ?: "/Users/wkouki/AndroidStudioProjects/testbedui-plugins/test-sample/src/main/resources/revocation/root-ca.crt"
+            val trustPath = customTrustPath ?: File(org.example.project.JUnitBridge.resourceDir, "revocation/root-ca.crt").absolutePath
             val certFile = File(trustPath)
             if (certFile.exists()) {
                 val channel = client.execute(

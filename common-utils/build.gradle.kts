@@ -4,10 +4,7 @@ plugins {
 kotlin {
     jvmToolchain(21)
 }
-repositories {
-    google()
-    mavenCentral()
-}
+
 
 dependencies {
     // 本体 (testbedui) のクラスを参照

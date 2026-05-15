@@ -79,7 +79,7 @@ class FiaX509RevocationUnreachableTest {
 
     @Test
     fun testRevocationUnreachableAllowsConnection() {
-        val revocationDir = File("/Users/wkouki/AndroidStudioProjects/testbedui-plugins/test-sample/src/main/resources/revocation")
+        val revocationDir = File(org.example.project.JUnitBridge.resourceDir, "revocation")
         val certFile = File(revocationDir, "server-valid.crt")
         val keyFile = File(revocationDir, "server-valid.key")
         val trustCertFile = File(revocationDir, "root-ca.crt")

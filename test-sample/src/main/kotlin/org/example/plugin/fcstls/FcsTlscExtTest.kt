@@ -488,6 +488,131 @@ log("HTTP response: $httpret")
     }
   }
 
+  @Test
+  fun testSessionResumptionTls13MismatchedSessionId() {
+    val serial = adb.deviceSerial
+    val port = 4433
+    
+    // Start the mock server on host
+    val tempDir = Files.createTempDirectory("server").toFile()
+    val serverScript = File(tempDir, "bad_tls_server.py")
+    serverScript.writeText("""
+import socket
+import sys
+import os
+import time
+
+port = 4433
+if len(sys.argv) > 1:
+    port = int(sys.argv[1])
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(("0.0.0.0", port))
+s.listen(1)
+print(f"Listening on port {port}...")
+
+while True:
+    conn, addr = s.accept()
+    print(f"Connected by {addr}")
+    try:
+        data = conn.recv(1024)
+        if not data:
+            conn.close()
+            continue
+
+        # Find session ID length at index 43
+        if len(data) < 44:
+            print("Data too short")
+            conn.close()
+            continue
+
+        sid_len = data[43]
+        print(f"Session ID length: {sid_len}")
+
+        if len(data) < 44 + sid_len:
+            print("Data too short for session ID")
+            conn.close()
+            continue
+
+        sid = data[44 : 44 + sid_len]
+        print(f"Client Session ID: {sid.hex()}")
+
+        # Modify the last byte of session ID
+        bad_sid = bytearray(sid)
+        if len(bad_sid) > 0:
+            bad_sid[-1] = (bad_sid[-1] + 1) % 256
+        print(f"Bad Session ID: {bad_sid.hex()}")
+
+        # Construct ServerHello
+        random_bytes = os.urandom(32)
+
+        server_hello_body = bytearray()
+        server_hello_body.extend([0x03, 0x03])  # Version
+        server_hello_body.extend(random_bytes)  # Random
+        server_hello_body.append(len(bad_sid))  # Session ID length
+        server_hello_body.extend(bad_sid)  # Session ID
+        server_hello_body.extend([0x13, 0x01])  # Cipher Suite: TLS_AES_128_GCM_SHA256
+        server_hello_body.append(0x00)  # Compression
+
+        # Extensions: supported_versions (TLS 1.3)
+        extensions = bytearray([0x00, 0x2B, 0x00, 0x02, 0x03, 0x04])
+
+        ext_len = len(extensions)
+        server_hello_body.extend([ext_len >> 8, ext_len & 0xFF])
+        server_hello_body.extend(extensions)
+
+        hs_len = len(server_hello_body)
+        handshake_msg = bytearray([0x02, hs_len >> 16, (hs_len >> 8) & 0xFF, hs_len & 0xFF])
+        handshake_msg.extend(server_hello_body)
+
+        rec_len = len(handshake_msg)
+        record = bytearray([0x16, 0x03, 0x03, rec_len >> 8, rec_len & 0xFF])
+        record.extend(handshake_msg)
+
+        conn.sendall(record)
+        print("Sent ServerHello with bad session ID")
+
+        time.sleep(2)
+        conn.close()
+        print("Closed connection")
+
+    except Exception as e:
+        print(f"Error: {e}")
+        conn.close()
+    """.trimIndent())
+    
+    val pb = ProcessBuilder("python3", serverScript.absolutePath, port.toString())
+    val serverProcess = pb.start()
+    
+    try {
+      Thread.sleep(2000) // Give it time to start
+
+      // Adb reverse
+      val reverseProc = Runtime.getRuntime().exec("adb -s $serial reverse tcp:$port tcp:$port")
+      reverseProc.waitFor()
+
+      val hostName = "https://localhost:$port/"
+      val resp = tlsCapturePacket("resumption_bad_sid", hostName, resumption = true)
+      
+      val httpret = resp.httpResponse
+      log("HTTP response: $httpret")
+      
+      // We expect it to NOT start with 200, but rather fail.
+      errs.checkThat(a.msg("HTTP response should NOT start with 200"), httpret.startsWith("200"), IsEqual(false))
+      
+      log("Worker logs: ${resp.workerLogs}")
+      errs.checkThat(a.msg("Worker logs should contain SSLHandshakeException or similar"), 
+                     resp.workerLogs.contains("SSLHandshakeException") || resp.workerLogs.contains("SSLPeerUnverifiedException") || resp.workerLogs.contains("timeout"), 
+                     IsEqual(true))
+      
+    } finally {
+      serverProcess.destroy()
+      Runtime.getRuntime().exec("adb -s $serial reverse --remove tcp:$port").waitFor()
+      tempDir.deleteRecursively()
+    }
+  }
+
   // NOTE: FCS_TLSC_EXT.3 (Downgrade Protection) requires a custom server that sends
   // the downgrade indicator in Server Random. Since badssl.com does not support this,
   // it is not tested here. A dedicated test server or container would be needed.

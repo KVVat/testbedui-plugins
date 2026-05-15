@@ -149,7 +149,7 @@ class FiaX509ContextUsageTest {
     @Test
     fun testVerifyOcspSigningEku() {
         log("Starting testVerifyOcspSigningEku...")
-        val certFile = File("/Users/wkouki/AndroidStudioProjects/testbedui-plugins/test-sample/src/main/resources/revocation/responder.crt")
+        val certFile = File(org.example.project.JUnitBridge.resourceDir, "revocation/responder.crt")
         
         Assert.assertTrue("Cert file should exist", certFile.exists())
         

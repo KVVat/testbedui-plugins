@@ -143,6 +143,71 @@ class FiaX509ExtTest {
         SFRCheckList.pass("FIA_X509_EXT.1.1")
     }
 
+    @Test
+    fun testUnsupportedCriticalExtension() {
+        val serial = adb.deviceSerial
+        val port = 4433
+        
+        val tempDir = Files.createTempDirectory("certs").toFile()
+        val certFile = File(tempDir, "leaf.crt")
+        val keyFile = File(tempDir, "leaf.key")
+        val caCertFile = File(tempDir, "ca.crt")
+        val extConfFile = File(tempDir, "ext.conf")
+
+        // Create ext.conf
+        extConfFile.writeText("""
+            [ v3_req ]
+            basicConstraints = CA:FALSE
+            keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+            1.2.3.4.5.6.7 = critical,ASN1:UTF8String:DummyCriticalValue
+        """.trimIndent())
+
+        // Generate certs using OpenSSL
+        ProcessBuilder("openssl", "genrsa", "-out", File(tempDir, "ca.key").absolutePath, "2048").start().waitFor()
+        ProcessBuilder("openssl", "req", "-new", "-x509", "-days", "365", "-key", File(tempDir, "ca.key").absolutePath, "-out", caCertFile.absolutePath, "-subj", "/CN=TestCA").start().waitFor()
+        ProcessBuilder("openssl", "genrsa", "-out", keyFile.absolutePath, "2048").start().waitFor()
+        ProcessBuilder("openssl", "req", "-new", "-key", keyFile.absolutePath, "-out", File(tempDir, "leaf.csr").absolutePath, "-subj", "/CN=localhost").start().waitFor()
+        ProcessBuilder("openssl", "x509", "-req", "-in", File(tempDir, "leaf.csr").absolutePath, "-CA", caCertFile.absolutePath, "-CAkey", File(tempDir, "ca.key").absolutePath, "-CAcreateserial", "-out", certFile.absolutePath, "-days", "365", "-extfile", extConfFile.absolutePath, "-extensions", "v3_req").start().waitFor()
+
+        Assert.assertTrue("Cert file not found: ${certFile.absolutePath}", certFile.exists())
+        Assert.assertTrue("Key file not found: ${keyFile.absolutePath}", keyFile.exists())
+        Assert.assertTrue("CA Cert file not found: ${caCertFile.absolutePath}", caCertFile.exists())
+
+        val pb = ProcessBuilder(
+            "openssl", "s_server",
+            "-accept", port.toString(),
+            "-cert", certFile.absolutePath,
+            "-key", keyFile.absolutePath,
+            "-www"
+        )
+        val serverProcess = pb.start()
+        
+        try {
+            Thread.sleep(2000) // Give it time to start
+
+            val reverseProc = Runtime.getRuntime().exec("adb -s $serial reverse tcp:$port tcp:$port")
+            reverseProc.waitFor()
+
+            val hostName = "https://localhost:$port/"
+            val resp = tlsCapturePacket("crit_ext", hostName, trustPath = caCertFile.absolutePath)
+            
+            val httpret = resp.httpResponse
+            log("HTTP response: $httpret")
+            
+            errs.checkThat(a.msg("HTTP response should be error/failure for unsupported critical extension"), httpret.startsWith("200"), IsEqual(false))
+            
+            log("Worker logs: ${resp.workerLogs}")
+            errs.checkThat(a.msg("Worker logs should contain exception"), 
+                           resp.workerLogs.contains("Exception") || resp.workerLogs.contains("Failure"), 
+                           IsEqual(true))
+            
+        } finally {
+            serverProcess.destroy()
+            Runtime.getRuntime().exec("adb -s $serial reverse --remove tcp:$port").waitFor()
+            tempDir.deleteRecursively()
+        }
+    }
+
     private fun tlsCapturePacket(testlabel:String, testurl:String, p12Path: String? = null, p12Pass: String? = null, resumption: Boolean = false, type: String = "http", forceTls12: Boolean = false, trustPath: String? = null): org.example.plugin.utils.TlsResult {
         var pcap: Path = Paths.get("/")
         var httpResp: String = ""
@@ -164,9 +229,16 @@ class FiaX509ExtTest {
                     )
                     for (progress in channel) {}
                     
-                    client.execute(ShellCommandRequest("su 0 mkdir -p /data/data/com.example.openurl/files/"), serial)
-                    client.execute(ShellCommandRequest("su 0 cp /sdcard/cert.pem /data/data/com.example.openurl/files/cert.pem"), serial)
-                    client.execute(ShellCommandRequest("su 0 chmod 666 /data/data/com.example.openurl/files/cert.pem"), serial)
+                    client.execute(ShellCommandRequest("su 0 mkdir -p /data/data/com.example.openurl.niapsec/files/"), serial)
+                    client.execute(ShellCommandRequest("su 0 cp /sdcard/cert.pem /data/data/com.example.openurl.niapsec/files/cert.pem"), serial)
+                    client.execute(ShellCommandRequest("su 0 chmod 666 /data/data/com.example.openurl.niapsec/files/cert.pem"), serial)
+                    
+                    val uidRes = client.execute(ShellCommandRequest("su 0 stat -c '%u' /data/data/com.example.openurl.niapsec/"), serial)
+                    val uid = uidRes.output.trim()
+                    if (uid.isNotEmpty() && uid.all { it.isDigit() }) {
+                        client.execute(ShellCommandRequest("su 0 chown $uid:$uid /data/data/com.example.openurl.niapsec/files/cert.pem"), serial)
+                        log("Chowned cert.pem to $uid")
+                    }
                 }
             }
 
@@ -180,13 +252,13 @@ class FiaX509ExtTest {
             }
             Thread.sleep(2000) // Give tcpdump time to start
 
-            client.execute(ShellCommandRequest("am force-stop com.example.openurl"), serial)
+            client.execute(ShellCommandRequest("am force-stop com.example.openurl.niapsec"), serial)
             Thread.sleep(500)
             
-            var cmd = "am start -a android.intent.action.VIEW -n com.example.openurl/.MainActivity -e openurl $testurl"
+            var cmd = "am start -a android.intent.action.VIEW -n com.example.openurl.niapsec/.MainActivity -e openurl $testurl"
             if (!p12Path.isNullOrBlank()) cmd += " -e p12path $p12Path"
             if (!p12Pass.isNullOrBlank()) cmd += " -e p12pass '$p12Pass'"
-            if (!trustPath.isNullOrBlank()) cmd += " -e trustpath /data/data/com.example.openurl/files/cert.pem"
+            if (!trustPath.isNullOrBlank()) cmd += " -e trustpath /data/data/com.example.openurl.niapsec/files/cert.pem"
             if (resumption) cmd += " --ez resumption true"
             cmd += " -e type $type"
             if (forceTls12) cmd += " --ez forceTls12 true"

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-DIR="/Users/wkouki/AndroidStudioProjects/testbedui-plugins/test-sample/src/main/resources/revocation/cnsa"
+DIR="$(cd "$(dirname "$0")" && pwd)"
 cd $DIR
 
 # Generate Root CA

@@ -194,6 +194,12 @@ These tests actively simulate malicious or non-compliant server behavior to veri
 
   This is direct, RFC-textbook evidence that the TOE (Conscrypt) caches the server-assigned `session_id` from a prior TLS 1.2 handshake and presents it on the next `ClientHello` to drive an abbreviated handshake. Combined with the RFC 5077 ticket and TLS 1.3 PSK evidence above, all three resumption mechanisms named in `FCS_TLSC_EXT.5.1` are dynamically verified.
 
+* **Lab Concern — TLS 1.3 Session ID Echo (2026-05-15):** The lab noted that testing for `FCS_TLSC_EXT.5.1` (specifically **Test FCS_TLSC_EXT.5.1:2**) requires that the client closes the connection (not ignore it) when a TLS 1.3 server fails to correctly echo the `legacy_session_id`.
+* **Resolution:** A negative test case `testSessionResumptionTls13MismatchedSessionId` (corresponding to **Test FCS_TLSC_EXT.5.1:2**) was added in [FcsTlscExtTest.kt](./FcsTlscExtTest.kt) and successfully verified. The test uses a Python mock server to return a mismatched session ID. The client (Conscrypt) aborted the connection with `javax.net.ssl.SSLHandshakeException` (triggered by `DECODE_ERROR` in BoringSSL's `tls13_client.cc`), confirming that it actively closes the connection on protocol violations as required by the lab.
+
+* **Lab Concern — Unsupported Critical Extension (2026-05-15):** The lab requested verification that a certification path with a critical extension not supported by the TSF results in validation failure.
+* **Resolution:** A negative test case `testUnsupportedCriticalExtension` was added in [FiaX509ExtTest.kt](../fiax509/FiaX509ExtTest.kt) and successfully verified. The test presented a certificate with a dummy critical extension (OID `1.2.3.4.5.6.7`). Conscrypt correctly rejected the certificate with `java.security.cert.CertPathValidatorException: unrecognized critical extension(s)`, providing direct evidence of compliance.
+
 ### **V. Current Verification Status**
 
 Based on the specific requirements and recent strictness improvements, we have implemented and verified the following in `FcsTlscExtTest.kt` and related tests:
