@@ -29,6 +29,7 @@ import java.io.File
 import java.nio.file.Paths
 
 
+@Ignore("Temporarily disabled due to BFU ADB connection restrictions on newer Android versions")
 @SFR("FDP_DAR_EXT.1/Protected Data Encryption", """
   FDP_DAR_EXT.1.1: Encryption shall cover all protected data.
     
@@ -39,7 +40,7 @@ import java.nio.file.Paths
     Direct Boot aware applications.
     
     (FCS_CKH_EXT.1/Low in MDFPP 3.2)
-  """,category="encryption")
+  """,category="data_protection")
 class FdpDarExt1Test {
 
   private val TEST_PACKAGE = "com.example.directboot"

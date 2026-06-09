@@ -38,7 +38,7 @@ The TSF shall verify the digital signature of all applications prior to installa
 FPT_TUD_EXT.5 Application Verification
 Description:
 The TSF shall provide a mechanism to verify that an application update is digitally signed by the same entity as the version currently installed (Same-sign-on). This test validates that the TSF rejects updates with mismatched signatures and prevents "downgrade" attacks by blocking the installation of application versions with a lower version code than the one currently present on the device.  
-""",category="storage")
+""",category="system")
 class FdpTudExtTest {
     @get:Rule
     val adbDeviceRule = AdbDeviceRule()

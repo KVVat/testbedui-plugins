@@ -58,6 +58,7 @@ public class SecureURL {
     private final URL url;
     private final SecureConfig secureConfig;
     private final String clientCertAlias;
+    private final java.util.List<java.security.cert.X509Certificate> trustedCertificates;
 
     /**
      * Creates a SecureURL
@@ -67,7 +68,7 @@ public class SecureURL {
      * @throws MalformedURLException If the spec is malformed and not valid URL
      */
     public SecureURL(String spec, String clientCertAlias) throws MalformedURLException {
-        this(spec, clientCertAlias, SecureConfig.getStrongConfig());
+        this(spec, clientCertAlias, SecureConfig.getStrongConfig(), null);
     }
 
     /**
@@ -80,9 +81,32 @@ public class SecureURL {
      */
     public SecureURL(String spec, String clientCertAlias, SecureConfig secureConfig)
             throws MalformedURLException {
+        this(spec, clientCertAlias, secureConfig, null);
+    }
+
+    public SecureURL(String spec, String clientCertAlias, java.util.Map<String, java.io.InputStream> trustedCAs) throws MalformedURLException {
+        this(spec, clientCertAlias, SecureConfig.getStrongConfig(), trustedCAs);
+    }
+
+    public SecureURL(String spec, String clientCertAlias, SecureConfig secureConfig, java.util.Map<String, java.io.InputStream> trustedCAs)
+            throws MalformedURLException {
         this.url = new URL(addProtocol(spec));
         this.clientCertAlias = clientCertAlias;
         this.secureConfig = secureConfig;
+        this.trustedCertificates = new java.util.ArrayList<>();
+        Log.d(TAG, "SecureURL constructor: trustedCAs null? " + (trustedCAs == null) + (trustedCAs != null ? ", size: " + trustedCAs.size() : ""));
+        if (trustedCAs != null) {
+            try {
+                java.security.cert.CertificateFactory cf = java.security.cert.CertificateFactory.getInstance("X.509");
+                for (java.io.InputStream ins : trustedCAs.values()) {
+                    java.security.cert.X509Certificate cert = (java.security.cert.X509Certificate) cf.generateCertificate(ins);
+                    this.trustedCertificates.add(cert);
+                }
+            } catch (java.security.GeneralSecurityException e) {
+                Log.e(TAG, "Failed to parse trusted CAs", e);
+            }
+        }
+        Log.d(TAG, "SecureURL constructor: parsed certificates size: " + this.trustedCertificates.size());
     }
 
     /**
@@ -95,7 +119,21 @@ public class SecureURL {
         Log.i(TAG, SecureConfig.PACKAGE_NAME +
                 " initiated a trusted channel to " + getHostname());
         HttpsURLConnection urlConnection = (HttpsURLConnection) this.url.openConnection();
-        urlConnection.setSSLSocketFactory(new ValidatableSSLSocketFactory(this));
+        if (this.trustedCertificates != null && !this.trustedCertificates.isEmpty()) {
+            java.util.Map<String, java.io.InputStream> rebuiltMap = new java.util.HashMap<>();
+            try {
+                int count = 0;
+                for (java.security.cert.X509Certificate cert : this.trustedCertificates) {
+                    rebuiltMap.put("ca_" + (count++), new java.io.ByteArrayInputStream(cert.getEncoded()));
+                }
+                urlConnection.setSSLSocketFactory(new ValidatableSSLSocketFactory(this, rebuiltMap, this.secureConfig));
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to recreate trust map for handshake", e);
+                urlConnection.setSSLSocketFactory(new ValidatableSSLSocketFactory(this));
+            }
+        } else {
+            urlConnection.setSSLSocketFactory(new ValidatableSSLSocketFactory(this));
+        }
         Log.i(TAG, "TLS session established and validated to " + getHostInfo());
         return urlConnection;
     }
@@ -112,8 +150,29 @@ public class SecureURL {
         Log.i(TAG, SecureConfig.PACKAGE_NAME + " initiated a trusted channel to " +
                 getHostname());
         HttpsURLConnection urlConnection = (HttpsURLConnection) this.url.openConnection();
-        urlConnection.setSSLSocketFactory(
-                new ValidatableSSLSocketFactory(this, trustedCAs, secureConfig));
+        if (trustedCAs != null) {
+            java.util.List<java.security.cert.X509Certificate> certsList = new java.util.ArrayList<>();
+            try {
+                java.security.cert.CertificateFactory cf = java.security.cert.CertificateFactory.getInstance("X.509");
+                for (java.io.InputStream ins : trustedCAs.values()) {
+                    certsList.add((java.security.cert.X509Certificate) cf.generateCertificate(ins));
+                }
+                this.trustedCertificates.clear();
+                this.trustedCertificates.addAll(certsList);
+                
+                java.util.Map<String, java.io.InputStream> rebuiltMap = new java.util.HashMap<>();
+                int count = 0;
+                for (java.security.cert.X509Certificate cert : this.trustedCertificates) {
+                    rebuiltMap.put("ca_" + (count++), new java.io.ByteArrayInputStream(cert.getEncoded()));
+                }
+                urlConnection.setSSLSocketFactory(new ValidatableSSLSocketFactory(this, rebuiltMap, secureConfig));
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize custom connection", e);
+                urlConnection.setSSLSocketFactory(new ValidatableSSLSocketFactory(this));
+            }
+        } else {
+            urlConnection.setSSLSocketFactory(new ValidatableSSLSocketFactory(this));
+        }
         Log.i(TAG, "TLS session established and validated to " + getHostInfo());
         return urlConnection;
     }
@@ -201,12 +260,23 @@ public class SecureURL {
             }
             CertPath path = CertificateFactory.getInstance(secureConfig.getCertPath())
                     .generateCertPath(leafCerts);
-            KeyStore ks = KeyStore.getInstance(secureConfig.getAndroidCAStore());
-            try {
+            KeyStore ks;
+            Log.d(TAG, "isValid: trustedCertificates size: " + (this.trustedCertificates != null ? this.trustedCertificates.size() : "null"));
+            if (this.trustedCertificates != null && !this.trustedCertificates.isEmpty()) {
+                ks = KeyStore.getInstance(KeyStore.getDefaultType());
                 ks.load(null, null);
-            } catch (IOException e) {
-                e.fillInStackTrace();
-                throw new AssertionError(e);
+                int count = 0;
+                for (java.security.cert.X509Certificate cert : this.trustedCertificates) {
+                    ks.setCertificateEntry("ca_" + (count++), cert);
+                }
+            } else {
+                ks = KeyStore.getInstance(secureConfig.getAndroidCAStore());
+                try {
+                    ks.load(null, null);
+                } catch (IOException e) {
+                    e.fillInStackTrace();
+                    throw new AssertionError(e);
+                }
             }
             CertPathValidator cpv = CertPathValidator.getInstance(
                     secureConfig.getCertPathValidator());//=PKIX by default
@@ -224,9 +294,15 @@ public class SecureURL {
             // If you see "Unable to determine revocation status due to network error"
             // Make sure your network security config allows for clear text access of the relevant
             // OCSP url.
+            Log.e(TAG, "isValid: CertPathValidatorException: " + e.getMessage(), e);
             e.fillInStackTrace();
             return false;
         } catch (GeneralSecurityException e) {
+            Log.e(TAG, "isValid: GeneralSecurityException: " + e.getMessage(), e);
+            e.fillInStackTrace();
+            return false;
+        } catch (IOException e) {
+            Log.e(TAG, "isValid: IOException: " + e.getMessage(), e);
             e.fillInStackTrace();
             return false;
         }

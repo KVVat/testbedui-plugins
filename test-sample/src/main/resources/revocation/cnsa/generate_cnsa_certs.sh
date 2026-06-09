@@ -13,7 +13,9 @@ openssl genrsa -out server-valid.key 3072
 openssl req -new -key server-valid.key -out server-valid.csr -subj "/C=JP/O=TestbedUI/CN=localhost"
 
 # Server Extensions
-echo "subjectAltName=DNS:localhost,IP:127.0.0.1" > server.ext
+echo "keyUsage = critical, digitalSignature, keyEncipherment" > server.ext
+echo "extendedKeyUsage = serverAuth" >> server.ext
+echo "subjectAltName=DNS:localhost,IP:127.0.0.1" >> server.ext
 echo "authorityInfoAccess=OCSP;URI:http://localhost:8889" >> server.ext
 
 # Sign Server Cert

@@ -25,7 +25,7 @@ import java.io.File
 @SFR(
     title = "FDP_ACF_EXT.1.2",
     description = "Verify the Android application sandbox. Ensure that access to private data of other applications is restricted.",
-    category="storage"
+    category="access_control"
 )
 class FdpAcc1Test {
 

@@ -1071,8 +1071,8 @@ log("tcpdump coroutine exception: ${e.message}")
 
           }
       }
-      Thread.sleep(2000) // Give tcpdump time to start
-
+      Thread.sleep(4000) // Give tcpdump time to start
+      
       client.execute(ShellCommandRequest("am force-stop com.example.openurl"), serial)
       Thread.sleep(500)
       

@@ -17,8 +17,8 @@ import org.junit.Test
  */
 @SFR(
     title = "FPT_AEX_EXT.4.1",
-    description = "Verify that system partitions (/system, /vendor) are read-only and protect the TSF from unauthorized modifications."
-    ,"storage"
+    description = "Verify that system partitions (/system, /vendor) are read-only and protect the TSF from unauthorized modifications.",
+    category="system"
 )
 class FptAexExt4Test {
 

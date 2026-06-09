@@ -14,7 +14,9 @@ openssl ecparam -name secp384r1 -genkey -out server-valid.key
 openssl req -new -key server-valid.key -out server-valid.csr -subj "/C=JP/O=TestbedUI/CN=localhost"
 
 # Server Extensions
-echo "subjectAltName=DNS:localhost,IP:127.0.0.1" > server.ext
+echo "keyUsage = critical, digitalSignature, keyEncipherment" > server.ext
+echo "extendedKeyUsage = serverAuth" >> server.ext
+echo "subjectAltName=DNS:localhost,IP:127.0.0.1" >> server.ext
 echo "authorityInfoAccess=OCSP;URI:http://localhost:8891" >> server.ext
 
 # Sign Server Cert

@@ -35,7 +35,7 @@ import java.nio.file.Paths
  */
 @SFR("FIA_X509_EXT.1.5", """
 The TSF shall validate that the context of the certificate path and trust store element is consistent with the supported function use via processing extendedKeyUsage field constraints in the leaf certificate.
-""")
+""", category="network")
 class FiaX509ContextUsageTest {
     @Rule @JvmField val errs = ErrorCollector()
     @Rule @JvmField val adb = AdbDeviceRule()

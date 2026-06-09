@@ -35,7 +35,7 @@ import kotlinx.coroutines.channels.consumeEach
  */
 @SFR("FIA_X509_EXT.1.2", """
 The TSF shall process extensions indicated in RFC 5280.
-""")
+""", category="network")
 class FiaX509ExtensionsTest {
     @Rule @JvmField val errs = ErrorCollector()
     @Rule @JvmField val adb = AdbDeviceRule()

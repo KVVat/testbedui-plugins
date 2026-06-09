@@ -20,8 +20,23 @@ class NetworkUtils {
      *
      */
     fun testHttpURLConnection(url_:String, p12Path: String? = null, p12Pass: String? = null, trustPath: String? = null, sslSocketFactory: javax.net.ssl.SSLSocketFactory? = null, hostnameVerifier: javax.net.ssl.HostnameVerifier? = null):Int {
+      
+      val trustedCAsMap = if (!trustPath.isNullOrBlank()) {
+          val file = File(trustPath)
+          if (file.exists()) {
+              mapOf("ca" to file.inputStream())
+          } else {
+              null
+          }
+      } else {
+          null
+      }
 
-      val secureUrl = com.android.certifications.niap.niapsec.net.SecureURL(url_, null)
+      val secureUrl = if (trustedCAsMap != null) {
+          com.android.certifications.niap.niapsec.net.SecureURL(url_, null, trustedCAsMap)
+      } else {
+          com.android.certifications.niap.niapsec.net.SecureURL(url_, null)
+      }
       val connection = secureUrl.openConnection() as javax.net.ssl.HttpsURLConnection
 
       if (connection is HttpsURLConnection) {
@@ -80,7 +95,7 @@ class NetworkUtils {
               if (kmf != null || tmf != null) {
                   val sc = SSLContext.getInstance("TLS")
                   sc.init(kmf?.keyManagers, tmf?.trustManagers, null)
-                  connection.sslSocketFactory = sc.socketFactory
+                  connection.sslSocketFactory = com.android.certifications.niap.niapsec.net.ValidatableSSLSocketFactory(secureUrl, sc.socketFactory)
                   
                   if (tmf != null) {
                       connection.hostnameVerifier = javax.net.ssl.HostnameVerifier { hostname, session ->
@@ -96,6 +111,9 @@ class NetworkUtils {
       connection.setConnectTimeout(5000);
       connection.setReadTimeout(5000);
       connection.connect();
+      if (!secureUrl.isValid(connection)) {
+          throw javax.net.ssl.SSLPeerUnverifiedException("OCSP validation failed")
+      }
       val responseCode = connection.getResponseCode();
       if (responseCode == HttpURLConnection.HTTP_OK) {
         var ins = connection.inputStream

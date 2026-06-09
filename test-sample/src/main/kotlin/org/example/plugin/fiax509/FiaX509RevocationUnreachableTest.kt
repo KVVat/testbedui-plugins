@@ -27,7 +27,7 @@ import kotlinx.coroutines.channels.consumeEach
  */
 @SFR("FIA_X509_EXT.2.2", """
 When the TSF cannot establish a connection to determine the revocation status of a certificate, the TSF shall allow the connection.
-""")
+""", category="network")
 class FiaX509RevocationUnreachableTest {
     @Rule @JvmField val errs = ErrorCollector()
     @Rule @JvmField val adb = AdbDeviceRule()

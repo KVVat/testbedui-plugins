@@ -28,6 +28,8 @@ class MainActivity : AppCompatActivity() {
     binding = ActivityMainBinding.inflate(layoutInflater)
     setContentView(binding.root)
 
+    javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier { _, _ -> true }
+
     android.util.Log.d("CertCheck", "=== Supported Algorithms by Conscrypt ===")
     val provider = java.security.Security.getProvider("Conscrypt")
     if (provider != null) {

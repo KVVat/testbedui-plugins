@@ -86,6 +86,7 @@ tasks.register("applyPatch") {
 tasks.register<Copy>("copyProjectResourcesToCore") {
     group = "distribution"
     description = "Copies resources from subprojects to TestBed Core resources."
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 
     val coreResourcesDir = file("${rootProject.projectDir}/../testbed-core/composeApp/resources")
     into(coreResourcesDir)
@@ -94,6 +95,10 @@ tasks.register<Copy>("copyProjectResourcesToCore") {
         val resDir = project.file("resources")
         if (resDir.exists() && resDir.isDirectory) {
             from(resDir)
+        }
+        val srcResDir = project.file("src/main/resources")
+        if (srcResDir.exists() && srcResDir.isDirectory) {
+            from(srcResDir)
         }
     }
 }
@@ -107,6 +112,7 @@ tasks.register<Zip>("zipPluginsAndResources") {
         project.tasks.matching { task ->
             task.name == "assemble" ||
             task.name == "copyApkToCore" ||
+            task.name == "copyTestFixturesToCore" ||
             task.name == "generateAndDeployTestApks"
         }
     })

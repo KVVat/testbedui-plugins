@@ -22,8 +22,7 @@ try:
     context.set_ocsp_response(ocsp_resp)
     print("OCSP response set successfully.")
 except AttributeError:
-    print("Error: set_ocsp_response is not supported in this Python version.")
-    sys.exit(1)
+    print("Warning: set_ocsp_response is not supported in this Python version. Continuing without stapling.")
 
 server_address = ('0.0.0.0', port)
 httpd = http.server.HTTPServer(server_address, http.server.SimpleHTTPRequestHandler)

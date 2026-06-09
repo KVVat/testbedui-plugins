@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 
 @SFR("Long Running Test", """
 Sample Test Case
-""")
+""", category="system")
 class LongRunningTest {
     @get:Rule
     val adbDeviceRule = AdbDeviceRule()

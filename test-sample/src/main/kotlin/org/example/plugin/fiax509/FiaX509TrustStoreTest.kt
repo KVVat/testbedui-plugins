@@ -27,7 +27,7 @@ import kotlinx.coroutines.channels.consumeEach
  */
 @SFR("FIA_X509_EXT.1.6", """
 The TSF shall manage trust stores used for certification path validation.
-""")
+""", category="network")
 class FiaX509TrustStoreTest {
     @Rule @JvmField val errs = ErrorCollector()
     @Rule @JvmField val adb = AdbDeviceRule()
