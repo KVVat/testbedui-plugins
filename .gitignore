@@ -40,7 +40,7 @@ repomix-patch.txt
 bin/
 
 # ACVP test binaries and large vector datasets
-**/resources/vectors-*
-**/resources/expected-*
-**/resources/acvptool
-**/resources/acvp_kernel_harness_*
+**/resources/**/vectors/**
+**/resources/**/expected/**
+**/resources/**/acvptool
+**/resources/**/acvp_kernel_harness_*

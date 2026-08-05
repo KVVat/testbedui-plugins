@@ -72,7 +72,7 @@ class KernelAcvpTest {
     runBlocking {}
   }
 
-  val RES_PATH = JUnitBridge.resourceDir
+  val RES_PATH = File(JUnitBridge.resourceDir, "kernelacvp").absolutePath
   val OUT_PATH = File(JUnitBridge.resultsDir, "kernelacvp").absolutePath + "/"
 
   @OptIn(ExperimentalCoroutinesApi::class)
@@ -261,8 +261,8 @@ class KernelAcvpTest {
         )
       )
 
-      val vectorsDir = "/vectors-fips140/"
-      val expectedDir = "/expected-fips140/"
+      val vectorsDir = "/vectors/"
+      val expectedDir = "/expected/"
 
       // Step 3: Install test vectors
       val vectorDirPath = Path(RES_PATH + vectorsDir)

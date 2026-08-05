@@ -54,8 +54,12 @@ tasks.jar {
         exclude("META-INF/*.RSA")
     }
     // 巨大なテストデータやバイナリは JAR に含めず、testbed-core/composeApp/resources に配置する
-    exclude("vectors-*/**")
-    exclude("expected-*/**")
+    exclude("**/kernelacvp/vectors/**")
+    exclude("**/kernelacvp/expected/**")
+    exclude("**/kernelacvp/acvptool")
+    exclude("**/kernelacvp/acvp_kernel_harness_*")
+    exclude("vectors*/**")
+    exclude("expected*/**")
     exclude("acvptool")
     exclude("acvp_kernel_harness_*")
 
