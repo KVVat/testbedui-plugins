@@ -53,6 +53,12 @@ tasks.jar {
         exclude("META-INF/*.DSA")
         exclude("META-INF/*.RSA")
     }
+    // 巨大なテストデータやバイナリは JAR に含めず、testbed-core/composeApp/resources に配置する
+    exclude("vectors-*/**")
+    exclude("expected-*/**")
+    exclude("acvptool")
+    exclude("acvp_kernel_harness_*")
+
     // 3. 本体の plugins/配下の個別ディレクトリへ出力
     destinationDirectory.set(file("${rootProject.projectDir}/../testbed-core/composeApp/plugins/$pluginName"))
 }
@@ -101,7 +107,14 @@ tasks.register("generateTestList") {
     }
 }
 
+tasks.register<Copy>("copyResourcesToCore") {
+    description = "Copies plugin test resources to TestBed Core resources directory."
+    from(file("src/main/resources"))
+    val coreResourcesDir = file("${rootProject.projectDir}/../testbed-core/composeApp/resources")
+    into(coreResourcesDir)
+}
+
 tasks.named<Jar>("jar") {
-    dependsOn("generateTestList")
+    dependsOn("generateTestList", "copyResourcesToCore")
     from(layout.buildDirectory.dir("generated/testbed"))
 }

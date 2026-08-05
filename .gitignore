@@ -36,6 +36,11 @@ repomix-patch.txt
 /.gradle/
 /build/
 /test-sample/build/
-/test-sample/build/classes/kotlin/main/bin/
 /test-sample/scripts/tls/.venv/
 bin/
+
+# ACVP test binaries and large vector datasets
+**/resources/vectors-*
+**/resources/expected-*
+**/resources/acvptool
+**/resources/acvp_kernel_harness_*
