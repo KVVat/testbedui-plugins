@@ -118,6 +118,20 @@ tasks.register<Copy>("copyResourcesToCore") {
     into(coreResourcesDir)
 }
 
+tasks.register<Zip>("packageZip") {
+    description = "Packages the plugin JAR and resources into an importable ZIP file for TestBed Core."
+    dependsOn("jar")
+    archiveFileName.set("test-sample-plugin.zip")
+    destinationDirectory.set(file("${rootProject.projectDir}/dist"))
+
+    from(tasks.jar.get().archiveFile) {
+        into("plugins")
+    }
+    from(file("src/main/resources")) {
+        into("resources")
+    }
+}
+
 tasks.named<Jar>("jar") {
     dependsOn("generateTestList", "copyResourcesToCore")
     from(layout.buildDirectory.dir("generated/testbed"))

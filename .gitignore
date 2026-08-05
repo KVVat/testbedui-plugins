@@ -38,6 +38,7 @@ repomix-patch.txt
 /test-sample/build/
 /test-sample/scripts/tls/.venv/
 bin/
+dist/
 
 # ACVP test binaries and large vector datasets
 **/resources/**/vectors/**
