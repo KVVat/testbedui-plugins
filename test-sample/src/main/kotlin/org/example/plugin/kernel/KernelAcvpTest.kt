@@ -179,19 +179,68 @@ class KernelAcvpTest {
     return if (length > maxLength) take(maxLength) + "..." else this
   }
 
-  private fun evaluateResultFiles(expectedDir: String) {
-    logi("Evaluating test results against expected files in $expectedDir...")
-    val actualTar = Paths.get(OUT_PATH, "actual.tar.gz").toFile()
+  private fun findExpectedFile(expectedDir: File, actualFileName: String): File? {
+    // 1. Exact match with .bz2 or as-is
+    var candidate = File(expectedDir, "$actualFileName.bz2")
+    if (candidate.exists()) return candidate
+
+    candidate = File(expectedDir, actualFileName)
+    if (candidate.exists()) return candidate
+
+    // 2. Stripped prefix/suffix (e.g. remove -request.json, -request, .json)
+    val stripped = actualFileName
+      .replace("-request.json", "")
+      .replace("-request", "")
+      .replace(".json", "")
+    candidate = File(expectedDir, "$stripped.bz2")
+    if (candidate.exists()) return candidate
+
+    candidate = File(expectedDir, "$stripped-expected.json.bz2")
+    if (candidate.exists()) return candidate
+
+    candidate = File(expectedDir, "$stripped-response.json.bz2")
+    if (candidate.exists()) return candidate
+
+    // 3. Algorithm-based matching fallback
+    val expectedFiles = expectedDir.listFiles() ?: return null
+    val algoTokens = listOf(
+      "ACVP-AES-CBC-CS3", "ACVP-AES-CBC", "ACVP-AES-CTR", "ACVP-AES-ECB", "ACVP-AES-XTS", "ACVP-AES-GCM",
+      "CMAC-AES", "hmacDRBG",
+      "HMAC-SHA2-224", "HMAC-SHA2-256", "HMAC-SHA2-384", "HMAC-SHA2-512", "HMAC-SHA-1",
+      "SHA2-224", "SHA2-256", "SHA2-384", "SHA2-512", "SHA-1"
+    )
+    for (token in algoTokens) {
+      if (actualFileName.contains(token, ignoreCase = true)) {
+        val matched = expectedFiles.firstOrNull { it.name.contains(token, ignoreCase = true) }
+        if (matched != null) {
+          logd("Matched expected file by algorithm ($token): ${matched.name} for $actualFileName")
+          return matched
+        }
+      }
+    }
+
+    return null
+  }
+
+  private fun evaluateResultFiles(expectedDirName: String) {
+    logi("Evaluating test results against expected files in $expectedDirName...")
+    val actualTar = File(OUT_PATH, "actual.tar.gz")
     if (!actualTar.exists()) {
       loge("Actual results archive not found at: ${actualTar.absolutePath}")
       errs.checkThat(a.msg("Actual results archive exists"), false, IsEqual(true))
       return
     }
 
+    val expectedDirFile = File(RES_PATH, expectedDirName.trim('/', '\\'))
+    if (!expectedDirFile.exists()) {
+      loge("Expected directory not found at: ${expectedDirFile.absolutePath}")
+      errs.checkThat(a.msg("Expected directory exists"), false, IsEqual(true))
+      return
+    }
+
     targz_reader(actualTar.toURI()) { name, tartext ->
       val fname: String = Paths.get(name).fileName.toString()
       var result = true
-      val uri: URI = Paths.get(RES_PATH + expectedDir, "$fname.bz2").toUri()
 
       if (tartext.isBlank()) {
         logw("Actual output for $fname is empty (execution failed or timed out), skipping comparison")
@@ -199,8 +248,19 @@ class KernelAcvpTest {
         return@targz_reader
       }
 
+      val expectedFile = findExpectedFile(expectedDirFile, fname)
+      if (expectedFile == null || !expectedFile.exists()) {
+        loge("Error: No matching expected file found for $fname in ${expectedDirFile.absolutePath}")
+        errs.checkThat(a.msg("Expected file exists for $fname"), false, IsEqual(true))
+        return@targz_reader
+      }
+
       try {
-        val br2text = bz2reader(uri)
+        val br2text = if (expectedFile.name.endsWith(".bz2")) {
+          bz2reader(expectedFile.toURI())
+        } else {
+          expectedFile.readText()
+        }
         val br2text_ = br2text.lowercase()
         val tartext_ = tartext.lowercase()
         val jsonB: JsonNode = jacksonObjectMapper().readTree(br2text_) // expected
@@ -214,8 +274,8 @@ class KernelAcvpTest {
           patch.forEach { jsonNode ->
             val nodepath = jsonNode.get("path")?.textValue() ?: ""
             if (!ignoreList.contains(nodepath)) {
-              val resp = jsonNode.toString().truncate(100)
-              loge("Found mismatch in $fname: $resp")
+              val resp = jsonNode.toString().truncate(200)
+              loge("Found mismatch in $fname (vs ${expectedFile.name}): $resp")
               result = false
             }
           }
@@ -225,10 +285,10 @@ class KernelAcvpTest {
         }
 
         if (result) {
-          logp("Vector verification PASSED: $fname")
+          logp("Vector verification PASSED: $fname (matched with ${expectedFile.name})")
         }
       } catch (ex: IOException) {
-        loge("Error reading expected file for $fname: ${ex.message}")
+        loge("Error reading expected file for $fname (${expectedFile.name}): ${ex.message}")
         result = false
       } catch (ex: Exception) {
         loge("Processing error during evaluation of $fname: ${ex.message}")
@@ -261,11 +321,11 @@ class KernelAcvpTest {
         )
       )
 
-      val vectorsDir = "/vectors/"
-      val expectedDir = "/expected/"
+      val vectorsDir = "vectors"
+      val expectedDir = "expected"
 
       // Step 3: Install test vectors
-      val vectorDirPath = Path(RES_PATH + vectorsDir)
+      val vectorDirPath = File(RES_PATH, vectorsDir).toPath()
       if (!vectorDirPath.toFile().exists()) {
         val msg = "Vectors directory not found at: ${vectorDirPath.toAbsolutePath()}"
         loge(msg)
@@ -276,7 +336,7 @@ class KernelAcvpTest {
       val fnames2 = vectorDirPath.listDirectoryEntries("*.bz2")
       logi("Step 3: Found ${fnames2.size} test vector files in $vectorsDir")
       AdamUtils.shellRequest("rm -rf /data/local/tmp/vectors; mkdir -p /data/local/tmp/vectors/", adb)
-      batch_install(RES_PATH + vectorsDir, "/data/local/tmp/vectors/", fnames2)
+      batch_install(File(RES_PATH, vectorsDir).absolutePath, "/data/local/tmp/vectors/", fnames2)
 
       // Step 4: System configuration
       logi("Step 4: Configuring sysctl net.core.optmem_max=204800...")
@@ -299,13 +359,19 @@ class KernelAcvpTest {
           adb
         )
 
-        val srStr = sr.toString().truncate(100)
+        val stdoutStr = String(sr.stdout, Charsets.UTF_8).trim()
+        val stderrStr = String(sr.stderr, Charsets.UTF_8).trim()
+        val outputDetail = buildString {
+          if (stdoutStr.isNotEmpty()) append(" stdout: $stdoutStr")
+          if (stderrStr.isNotEmpty()) append(" stderr: $stderrStr")
+        }
+
         val line: String
         if (sr.exitCode != 0) {
-          line = "\"${dateFormat.format(Date())} *** processing $fname ... failure (exitCode=${sr.exitCode}) ***\" $srStr"
+          line = "\"${dateFormat.format(Date())} *** processing $fname ... failure (exitCode=${sr.exitCode}) ***\"$outputDetail"
           loge(line)
         } else {
-          line = "\"${dateFormat.format(Date())} *** processing $fname ... ok ***\" $srStr"
+          line = "\"${dateFormat.format(Date())} *** processing $fname ... ok ***\"$outputDetail"
           logi(line)
         }
 

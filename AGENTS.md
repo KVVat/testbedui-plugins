@@ -54,3 +54,11 @@ LLMエージェントがテストを開発・実行する際は、以下のワ�
 - **`junit_test_receive`**: 実行中のログ（`status: "Running"`）や完了後の結果（`status: "Finished"`, `Pass/Fail`, `stacktrace`）を構造化されたJSONで取得。
 
 > **Note**: 実行中のリアルタイムログ取得に対応しているため、長時間（2分以上）のテストでも `junit_test_receive` をポーリングすることで進捗を監視できます。
+
+## 6. リソース配置と配布パッケージング規約（厳守事項）
+- **テスト用外部リソース（大容量ベクターデータ、テスト用バイナリ等）の配置場所**:
+  - すべて **プロジェクトルート直下の `resources/`**（例: `resources/kernelacvp/`, `resources/revocation/`, `resources/x509extensions/`）に配置・管理すること。
+  - **`test-sample/src/main/resources/` に大容量ファイルやテストデータを配置してはならない**（プラグイン JAR の不要な肥大化を防止し、プロジェクト構成を人間にとって明確にするため）。
+- **配布用 ZIP パッケージの生成**:
+  - 配布用パッケージ（`dist/test-sample-plugin.zip`）は、プロジェクトルート直下の `resources/` とビルドされたプラグイン JAR（`plugins/test-sample.jar`）から生成される。
+  - リソースの追加・更新時は必ずルートの `resources/` に対して行い、`./gradlew :test-sample:packageZip` でパッケージングすること。

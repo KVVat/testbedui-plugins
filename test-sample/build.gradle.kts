@@ -113,7 +113,7 @@ tasks.register("generateTestList") {
 
 tasks.register<Copy>("copyResourcesToCore") {
     description = "Copies plugin test resources to TestBed Core resources directory."
-    from(file("src/main/resources"))
+    from(file("${rootProject.projectDir}/resources"))
     val coreResourcesDir = file("${rootProject.projectDir}/../testbed-core/composeApp/resources")
     into(coreResourcesDir)
 }
@@ -127,7 +127,7 @@ tasks.register<Zip>("packageZip") {
     from(tasks.jar.get().archiveFile) {
         into("plugins")
     }
-    from(file("src/main/resources")) {
+    from(file("${rootProject.projectDir}/resources")) {
         into("resources")
     }
 }
